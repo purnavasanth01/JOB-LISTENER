@@ -1,19 +1,124 @@
-"""Alerts: one phone push (ntfy) + one email per run. Config comes from environment variables (GitHub Secrets)."""
+"""Alerts: Telegram + email (+ optional ntfy) once per run. Config comes from environment variables (GitHub Secrets).
+
+Telegram: TELEGRAM_TOKEN from @BotFather. The chat is detected automatically the first time you message the bot
+(only that private chat is ever used); TELEGRAM_CHAT_ID can pin it explicitly.
+"""
 import html
 import json
 import os
 import smtplib
 import ssl
+import time
 import urllib.request
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 NTFY_MAX = 3800   # ntfy message limit is 4096 bytes
+TG_MAX = 3800     # Telegram message limit is 4096 characters
+_tg_chat = None   # set by telegram_sync()
 
 
 def configured():
-    return {"push": bool(os.environ.get("NTFY_TOPIC")),
+    return {"telegram": bool(os.environ.get("TELEGRAM_TOKEN") and _tg_chat),
+            "push": bool(os.environ.get("NTFY_TOPIC")),
             "email": bool(os.environ.get("SMTP_USER") and os.environ.get("SMTP_PASS"))}
+
+
+# ---------------------------------------------------------------- Telegram
+
+def tg_api(method, payload):
+    token = os.environ.get("TELEGRAM_TOKEN", "").strip()
+    base = os.environ.get("TELEGRAM_API", "https://api.telegram.org").rstrip("/")   # override only for tests
+    req = urllib.request.Request("%s/bot%s/%s" % (base, token, method),
+                                 data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        d = json.loads(r.read().decode("utf-8"))
+    if not d.get("ok"):
+        raise RuntimeError("telegram %s: %s" % (method, d.get("description")))
+    return d.get("result")
+
+
+def tg_send(text, buttons=None):
+    if not _tg_chat:
+        return False
+    msg = {"chat_id": _tg_chat, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True}
+    if buttons:
+        msg["reply_markup"] = {"inline_keyboard": [[{"text": t, "url": u}] for t, u in buttons]}
+    tg_api("sendMessage", msg)
+    return True
+
+
+HELP = ("<b>Job listener bot</b>\nI message you every new 2027 internship within minutes.\n\n"
+        "/status – listener health and today's numbers\n/help – this message")
+
+
+def telegram_sync(meta, log, status_text):
+    """Called once per run: find your chat, answer commands sent since the last run."""
+    global _tg_chat
+    if not os.environ.get("TELEGRAM_TOKEN"):
+        return
+    _tg_chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip() or meta.get("tg_chat")
+    try:
+        updates = tg_api("getUpdates", {"offset": meta.get("tg_offset", 0), "timeout": 0,
+                                        "allowed_updates": ["message"]}) or []
+    except Exception as e:  # noqa: BLE001
+        log("telegram getUpdates failed: %s" % e)
+        return
+    for u in updates:
+        meta["tg_offset"] = u["update_id"] + 1
+        m = u.get("message") or {}
+        chat = m.get("chat") or {}
+        text = (m.get("text") or "").strip().lower()
+        if not _tg_chat and chat.get("type") == "private":
+            _tg_chat = chat["id"]
+            meta["tg_chat"] = _tg_chat
+            log("telegram: connected to chat %s" % _tg_chat)
+            _safe(log, tg_send, "✅ Connected. Job alerts will arrive here.\n\n" + HELP)
+            continue
+        if str(chat.get("id")) != str(_tg_chat):
+            continue          # strangers who find the bot are ignored
+        if text.startswith("/status"):
+            _safe(log, tg_send, status_text())
+        elif text.startswith("/help") or text.startswith("/start"):
+            _safe(log, tg_send, HELP)
+
+
+def _safe(log, fn, *a):
+    try:
+        return fn(*a)
+    except Exception as e:  # noqa: BLE001
+        log("telegram send failed: %s" % e)
+        return False
+
+
+def _tg_job(a):
+    e = html.escape
+    who = "<b>%s</b>%s" % (e(a["company"]), " #%d" % a["rank"] if a.get("rank") else "")
+    loc = e((a.get("location") or "?")[:50]) + (" ×%d" % a["count"] if a.get("count", 1) > 1 else "")
+    tags = (" · " + e(", ".join(a["tags"]))) if a.get("tags") else ""
+    return "%s — <a href=\"%s\">%s</a>\n%s · %s%s" % (who, e(a.get("url") or "", quote=True), e(a["title"]),
+                                                      e(a["role"]), loc, tags)
+
+
+def telegram_jobs(alerts):
+    """One message per ~15 jobs; a single job also gets an Apply button."""
+    if not _tg_chat:
+        return False
+    n = len(alerts)
+    chunks, cur = [], "🔔 <b>%d new internship%s</b>\n" % (n, "" if n == 1 else "s")
+    for a in alerts:
+        block = "\n" + _tg_job(a) + "\n"
+        if len(cur) + len(block) > TG_MAX:
+            chunks.append(cur)
+            cur = ""
+        cur += block
+    chunks.append(cur)
+    for i, c in enumerate(chunks):
+        buttons = [("Apply: " + alerts[0]["company"][:30], alerts[0]["url"])] if n == 1 and alerts[0].get("url") else None
+        tg_send(c, buttons)
+        if i < len(chunks) - 1:
+            time.sleep(1.1)       # Telegram allows ~1 message/second per chat
+    return True
 
 
 def _line(a):
@@ -79,6 +184,10 @@ def send_jobs(alerts, log):
     actions = [("Apply %d" % (i + 1), a["url"]) for i, a in enumerate(alerts[:3]) if a.get("url")]
     ok = False
     try:
+        ok |= telegram_jobs(alerts)
+    except Exception as e:  # noqa: BLE001
+        log("telegram failed: %s" % e)
+    try:
         ok |= push(title, "".join(lines), click=alerts[0].get("url"), actions=actions)
     except Exception as e:  # noqa: BLE001 - never let alerting crash the run
         log("push failed: %s" % e)
@@ -103,6 +212,10 @@ def send_jobs(alerts, log):
 
 def send_status(title, body, log, priority="default"):
     ok = False
+    try:
+        ok |= tg_send("<b>%s</b>\n%s" % (html.escape(title), html.escape(body)))
+    except Exception as e:  # noqa: BLE001
+        log("status telegram failed: %s" % e)
     try:
         ok |= push(title, body, priority=priority, tags="robot")
     except Exception as e:  # noqa: BLE001

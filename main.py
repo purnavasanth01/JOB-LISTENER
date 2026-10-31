@@ -456,7 +456,19 @@ class Run:
         self.st.pending.append(p)
 
     # ---------------- notifications
+    def status_text(self):
+        today = central_now().strftime("%Y-%m-%d")
+        d = self.st.meta.get("days", {}).get(today, {})
+        bad = sorted(s for s, v in self.source_ok.items() if not v)
+        return ("<b>Listener status</b>\nLast check: %s CT\nSources OK: %d/%d%s\nToday so far: %d alerts, %d dropped, "
+                "%d checks\nJobs known: %d\nBacklog/alerts files: state branch on GitHub" % (
+                    central_now().strftime("%b %d %H:%M"), len(self.source_ok) - len(bad), len(self.source_ok),
+                    (" (down: " + ", ".join(bad[:5]) + ")") if bad else "", d.get("alerts", 0), d.get("dropped", 0),
+                    d.get("runs", 0), len(self.st.seen)))
+
     def deliver(self):
+        if not (self.args.dry_run or self.args.no_notify):
+            notify.telegram_sync(self.st.meta, self.log, self.status_text)
         batch = self.st.unsent + self.alerts
         if not batch:
             return

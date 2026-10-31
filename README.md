@@ -24,7 +24,8 @@ Targets live in `targets.json` (H-1B sponsors, ranked). Filters live in `rules.p
 
 ## Setup (one time)
 1. Repo **Settings → Secrets and variables → Actions → New repository secret**:
-   - `NTFY_TOPIC` – your ntfy topic (subscribe to the same topic in the ntfy phone app).
+   - `TELEGRAM_TOKEN` – bot token from @BotFather. Then send your bot any message; the next run connects to your chat and replies "Connected". Commands: `/status`, `/help`.
+   - optional `NTFY_TOPIC` – ntfy topic, if you also want ntfy pushes.
    - `SMTP_USER` – your Gmail address. `SMTP_PASS` – a Gmail **App Password** (Google Account → Security → 2-Step Verification → App passwords).
    - optional `EMAIL_TO` – where to send (defaults to `SMTP_USER`).
 2. **Actions** tab → enable workflows → run `listen` once manually (first run is silent and builds `backlog.csv`).
