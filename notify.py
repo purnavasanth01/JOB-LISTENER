@@ -6,6 +6,7 @@ Telegram: TELEGRAM_TOKEN from @BotFather. The chat is detected automatically the
 import html
 import json
 import os
+import re
 import smtplib
 import ssl
 import time
@@ -27,12 +28,18 @@ def configured():
 # ---------------------------------------------------------------- Telegram
 
 def tg_api(method, payload):
-    token = os.environ.get("TELEGRAM_TOKEN", "").strip()
+    token = re.sub(r"\s+", "", os.environ.get("TELEGRAM_TOKEN", ""))   # pasted tokens sometimes contain spaces
     base = os.environ.get("TELEGRAM_API", "https://api.telegram.org").rstrip("/")   # override only for tests
-    req = urllib.request.Request("%s/bot%s/%s" % (base, token, method),
-                                 data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        d = json.loads(r.read().decode("utf-8"))
+    try:
+        req = urllib.request.Request("%s/bot%s/%s" % (base, token, method), data=json.dumps(payload).encode("utf-8"),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            d = json.loads(r.read().decode("utf-8"))
+    except Exception as e:  # noqa: BLE001 - the token is in the URL: never let it reach a (public) log
+        msg = str(e)
+        for part in {token, token.split(":")[-1]} - {""}:
+            msg = msg.replace(part, "<token>")
+        raise RuntimeError("telegram %s failed: %s" % (method, msg[:150])) from None
     if not d.get("ok"):
         raise RuntimeError("telegram %s: %s" % (method, d.get("description")))
     return d.get("result")
