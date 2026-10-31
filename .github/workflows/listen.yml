@@ -1,0 +1,60 @@
+name: listen
+
+# Primary trigger: cron-job.org calls the workflow_dispatch API every 3 minutes.
+# The schedule below is only a backup in case cron-job.org stops (GitHub cron is often late).
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+# Never run two checks at once; a trigger that arrives mid-run waits (extra ones are dropped).
+concurrency:
+  group: listener
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Load state (state branch)
+        env:
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          if git ls-remote --exit-code --heads origin state > /dev/null 2>&1; then
+            git clone --quiet --depth 1 --branch state "$REPO_URL" state
+          else
+            mkdir -p state && echo "no state branch yet: first run will seed silently"
+          fi
+
+      - name: Run listener
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python main.py --state-dir state
+
+      - name: Save state
+        if: success()
+        env:
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          cd state
+          if [ ! -d .git ]; then git init --quiet -b state && git remote add origin "$REPO_URL"; fi
+          git config user.name "job-listener-bot"
+          git config user.email "job-listener-bot@users.noreply.github.com"
+          # one orphan commit, force-pushed: history never grows
+          git checkout --quiet --orphan next
+          git add -A
+          git commit --quiet -m "state $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for i in 1 2 3; do git push --quiet --force origin HEAD:state && break; sleep 5; done
