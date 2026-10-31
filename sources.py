@@ -484,7 +484,28 @@ def detail_from_url(url):
     m = re.match(r"/([^/]+)/(\d{9,})", path)
     if "smartrecruiters.com" in host and m:
         return detail_smartrecruiters(m.group(1), m.group(2))
-    return None, None
+    return detail_html(url), None
+
+
+JSON_DESC = re.compile(r'"(description|jobDescription|job_description|qualifications|responsibilities|'
+                       r'basicQualifications|requirements)"\s*:\s*"((?:[^"\\]|\\.){80,})"')
+
+
+def detail_html(url):
+    """Any other job page (Jobright, iCIMS/Jibe, company sites): use the job JSON embedded in the page
+    (Next.js data, schema.org JobPosting, Jibe) when present, else the visible text."""
+    h = http.request(url, headers={"Accept": "text/html"})
+    parts = []
+    for m in JSON_DESC.finditer(h):
+        try:
+            parts.append(clean_text(json.loads('"%s"' % m.group(2))))
+        except ValueError:
+            continue
+    parts = sorted(set(parts), key=len, reverse=True)[:4]
+    if sum(len(p) for p in parts) > 300:
+        return " ".join(parts)[:40000]
+    text = clean_text(re.sub(r"(?is)<(script|style|nav|header|footer)[^>]*>.*?</\1>", " ", h))
+    return text[:40000] if len(text) > 300 else None
 
 
 def fetch_detail(job):
@@ -503,9 +524,7 @@ def fetch_detail(job):
         if kind == "eightfold":
             return detail_eightfold(d[1], d[2], d[3])
         if kind == "html":
-            h = http.request(d[1], headers={"Accept": "text/html"})
-            h = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", h)
-            return clean_text(h)[:20000], None
+            return detail_html(d[1]), None
     if job.get("aggregator"):
         return detail_from_url(job.get("url"))
     return None, None

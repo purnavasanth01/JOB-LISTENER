@@ -106,6 +106,8 @@ class HardDrops(unittest.TestCase):
             "Must be able to obtain and maintain a security clearance.",
             "Active Secret clearance required.",
             "Only U.S. persons are eligible for this role.",
+            "Shift: Day. Travel: No. US Citizenship. Clearance Level: None.",
+            "Citizenship: U.S. Citizen. Location: Herndon, VA.",
         ]
         for d in drops:
             self.assertIsNotNone(rules.hard_drop("SWE Intern", d), d)

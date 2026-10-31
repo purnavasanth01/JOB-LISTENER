@@ -77,7 +77,8 @@ SOFT_EXCLUDE = [
                     r"|\breal estate\b|\bpublic relations\b|\bmanufactur\w*|\bfinance\b|\bfinancial\b|\bactuar\w*"
                     r"|\bnon-?tech\w*|\btechnical writ\w*|\bwriter\b|\bconsult\w*|\bfield\b|\boperations\b"
                     r"|\bstrategy\b|\bsustainab\w*|\besg\b|\benergy\b|\bgis\b|\bgeospatial\b|\bcommercial\b"
-                    r"|\bclient\b|\bpolicy\b|\bmilitary\b|\bvehicle design\b|\bdesign studio\b|\becommerce\b")),
+                    r"|\bclient\b|\bpolicy\b|\bmilitary\b|\bvehicle design\b|\bdesign studio\b|\becommerce\b"
+                    r"|\bscheduling\b|\bestimating\b|\bproject controls\b|\bunderwriting\b")),
     ("non-tech analyst", rx(r"\b(business|financial|finance|investment|credit|risk|operations|ops|pricing|strategy"
                             r"|policy|compliance|actuarial|equity|research|sales|marketing|supply chain|people|hr"
                             r"|program|portfolio|treasury|fp&a) analysts?\b")),
@@ -272,6 +273,8 @@ INCLUSIVE = rx(r"\bwork authori[sz]\w*|\bauthori[sz]ation to work\b|\bcpt\b|\bop
                r"|\bauthori[sz]ed to work\b")
 COND = rx(r"\b(may|might|could|if|depending|potentially|some positions|certain positions|in some cases)\b")
 SENT_SPLIT = re.compile(r"(?<=[.!?;•])\s+|\n+")
+CITIZEN_LABEL = rx(r"^((citizenship|clearance)( requirements?| level)?\s*[:\-]\s*)?(us|united states)\s+citizen(ship|s)?"
+                   r"( required| only)?\s*\.?$")
 
 
 def hard_drop(title, desc=None, degrees=None, sponsorship=None):
@@ -288,6 +291,8 @@ def hard_drop(title, desc=None, degrees=None, sponsorship=None):
     for s in SENT_SPLIT.split(desc):
         if len(s) > 600:
             s = s[:600]
+        if CITIZEN_LABEL.match(s.strip()):          # requirement field like "Citizenship: US Citizen"
+            return "requires US citizenship / PR / asylee"
         hit = None
         if CLEARANCE.search(s):
             hit = "requires security clearance"
