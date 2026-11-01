@@ -49,6 +49,9 @@ SOURCE_NAMES = {"workday": "Workday", "greenhouse": "Greenhouse", "ashby": "Ashb
                 "google": "Google site", "microsoft": "Microsoft site", "eightfold": "Netflix site",
                 "phenom": "careers site", "simplify": "Simplify list", "vansh": "vanshb03 list",
                 "jobright": "Jobright list"}
+PAY_RE = __import__("re").compile(r"\$\s?\d[\d,]*(?:\.\d+)?\s?[kK]?(?:\s?(?:-|–|to)\s?\$?\s?\d[\d,]*(?:\.\d+)?\s?[kK]?)?"
+                                  r"(?:\s?(?:/|per)\s?(?:hour|hr|year|yr|month|week))?")
+TERM_RE = __import__("re").compile(r"\b(spring|summer|fall|autumn|winter)\s*(?:20)?27\b", __import__("re").I)
 # drops worth a second look by Claude during the resume run (judgment calls, not obvious drops)
 BORDERLINE = ("requires", "ITAR", "F-1", "sponsorship", "H-1B", "PhD", "undergrad", "vague title")
 
@@ -184,6 +187,7 @@ class Run:
         self.groups = {}
         self.source_ok = {}
         self.details_used = 0
+        self.jd_files = {}             # hid -> JD markdown (written to state/jds/ at the end of the run)
 
     # ---------------- helpers
     def log(self, msg):
@@ -481,7 +485,7 @@ class Run:
             if dup:
                 self.record(j, "dup:" + dup)
                 continue
-            loc = "; ".join((locs or j.get("locations") or [])[:3])
+            loc = "; ".join(list(dict.fromkeys(l.strip() for l in (locs or j.get("locations") or []) if l))[:3])
             hid = hashlib.sha1(j["key"].encode()).hexdigest()[:10]
             a = {"key": j["key"], "hid": hid, "company": j["company"], "rank": t["rank"] if t else None,
                  "target": bool(t), "title": j["title"], "role": role, "location": loc, "tags": flags,
@@ -494,10 +498,47 @@ class Run:
                                   "location": loc, "rank": a["rank"], "listener": a["listener"], "role": role,
                                   "status": "starred" if t else "new", "alerted": self.now_s,
                                   "starred": self.now_s if t else None}
+            self.jd_files[hid] = self.render_jd(j, a, desc)
             row = self.row(j, role, flags, location=loc, evidence=elig["line"] or "")
             self.rows["alerts.csv"].append(row)
             if j.get("l3_tag") == "MISSED by L1/L2":
                 self.rows["missed.csv"].append(row)
+
+    def render_jd(self, j, a, desc):
+        """The script-made part of the JD file (Step 4): header bullets + verbatim description + ATS keywords.
+        The fit section (Meets / Gaps / Angle / Rating) is added later on the Mac by Claude."""
+        t = j.get("target")
+        text = desc or ""
+        pay = sorted({m.group(0).strip() for m in PAY_RE.finditer(text)})[:3]
+        terms = sorted({m.group(0).title() for m in TERM_RE.finditer(text + " " + j["title"])})
+        kws = sorted({m.group(1) for m in rules.TECH_WORDS.finditer(text)}, key=str.lower)
+        req = j["key"].split(":")[-1]
+        lines = ["# %s — %s" % (j["company"], j["title"]), "",
+                 "- **Job key:** `%s` (req/ID: %s)" % (j["key"], req),
+                 "- **Employer:** %s%s" % (j["company"], " — TARGET #%s (H-1B sponsor list)" % t["rank"] if t else ""),
+                 "- **Role family:** %s" % a["role"],
+                 "- **Location:** %s" % (a["location"] or "not stated"),
+                 "- **Pay:** %s" % (", ".join(pay) or "not stated"),
+                 "- **Term:** %s" % (", ".join(terms) or "not stated (confirm Summer 2027)"),
+                 "- **Posted:** %s · **Found:** %s CT" % (j.get("posted") or "?", central_now().strftime("%Y-%m-%d %H:%M")),
+                 "- **Link:** %s" % (j.get("url") or ""),
+                 "- **Found by:** %s" % a["listener"],
+                 "- **Sponsorship wording:** %s" % (('"%s"' % a["line"]) if a.get("line") else "none found"),
+                 "- **Flags:** %s" % (", ".join(a["tags"]) or "none"), "",
+                 "## Job description (verbatim)", "", text.strip() or "_Description could not be read; open the link._",
+                 "", "## ATS keywords", "", ", ".join(kws) or "none detected", ""]
+        return "\n".join(lines)
+
+    def write_jds(self):
+        d = os.path.join(self.st.path, "jds")
+        os.makedirs(d, exist_ok=True)
+        for hid, md in self.jd_files.items():
+            with open(os.path.join(d, hid + ".md"), "w") as f:
+                f.write(md)
+        keep = {h for h, e in self.st.stars.items() if e.get("status") != "removed"}
+        for name in os.listdir(d):
+            if name.endswith(".md") and name[:-3] not in keep:
+                os.remove(os.path.join(d, name))
 
     def defer(self, j):
         p = {k: v for k, v in j.items() if k != "target"}
@@ -604,6 +645,7 @@ class Run:
             return
         for name, rows in self.rows.items():
             self.st.append_csv(name, rows)
+        self.write_jds()
         self.st.save()
         with open(os.path.join(self.st.path, "last_run.log"), "w") as f:
             f.write("\n".join(self.logs) + "\n")
