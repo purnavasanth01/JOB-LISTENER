@@ -109,12 +109,15 @@ ROLE_RULES = [
     ("QA/Automation", rx(r"\bqa\b|\bquality (assurance|engineer\w*)\b|\btest\w*|\bsdet\b|\bautomation\b|\bvalidation\b")),
     ("Tech Analyst", rx(r"\b(technology|tech|engineering|it|digital|software|systems|information) (summer )?analysts?\b"
                         r"|\btechnology (summer )?(intern|program)\w*")),
-    ("Software", rx(r"\bsoftware\b|\bswe\b|\bsde\b|\bdevelop(er|ers|ment)\b|\bprogramm(er|ing)\b|\bfull[- ]?stack\b"
+    ("Software", rx(r"\bsoftware\b|\bswe\b|\bsde\b|\bdevelopers?\b|\b(software|application|web|app) development\b|\bprogramm(er|ing)\b|\bfull[- ]?stack\b"
                     r"|\bback[- ]?end\b|\bfront[- ]?end\b|\bweb\b|\bmobile\b|\bios\b|\bandroid\b|\bapplications?\b"
                     r"|\bapis?\b|\bcoding\b|\bcomputer science\b|\bcs\b|\bengineering (intern|co-?op)\w*|\bdigital\b"
                     r"|\blibrar(y|ies)\b|\balgorithms?\b|\bsdks?\b|\bframeworks?\b|\btooling\b|\bnumerical\b"
-                    r"|\bscientific computing\b|\bsolvers?\b")),
+                    r"|\bscientific computing\b|\bsolvers?\b|\bcompilers?\b")),
 ]
+# user: include robotics / embedded software and compilers, but not pure robotics / embedded / hardware engineering
+SOFTWARE_OVERRIDES = {"embedded/hardware", "robotics/autonomy", "gpu/perf/architecture"}
+SOFTWARE_WORD = rx(r"\bsoftware\b|\bcompilers?\b|\bswe\b|\bsde\b")
 GENERIC_TECH = rx(r"\bengineer\w*|\btechnolog\w*|\btechnical\b|\btech\b|\bcomputer\b|\bstem\b|\binformation systems\b")
 ANALYST_RE = rx(r"\banalysts?\b")
 ANALYST_OK_LABELS = {"Data", "Tech Analyst", "Security", "AI/ML", "Research"}
@@ -125,6 +128,8 @@ def classify_role(title, category=None):
     t = title or ""
     for name, pat in HARD_EXCLUDE:
         if pat.search(t):
+            if name in SOFTWARE_OVERRIDES and SOFTWARE_WORD.search(t):
+                continue      # "Embedded Software Engineer", "Robotics Software", "GPU Compiler" stay in
             return None, "role excluded: " + name
     strong = bool(STRONG_SOFTWARE.search(t))
     if not strong:
@@ -217,7 +222,11 @@ NON_US = rx(r"\b(canada|india|china|united kingdom|uk|england|scotland|germany|f
             r"|sydney|melbourne|paris|berlin|munich|amsterdam|dublin|tel aviv|warsaw|krakow|bucharest|cluj"
             r"|prague|lisbon|madrid|barcelona|milan|stockholm|copenhagen|oslo|helsinki|hsinchu|taipei|manila"
             r"|kuala lumpur|jakarta|bangkok|cairo|lagos|nairobi|cape town|s[aã]o paulo|buenos aires|santiago"
-            r"|bogota|lima|zurich|zürich|london|cambridge, uk|emea|apac|latam)\b")
+            r"|bogota|lima|zurich|zürich|london|cambridge, uk|emea|apac|latam|qatar|doha|abu dhabi|riyadh|kuwait"
+            r"|bahrain|oman|jordan|lebanon|morocco|tunisia|ghana|ethiopia|rwanda|uganda|tanzania|kazakhstan"
+            r"|uzbekistan|nepal|cambodia|vietnam|hanoi|ho chi minh|united arab emirates|cyprus|malta|iceland"
+            r"|croatia|slovakia|slovenia|armenia|georgia, tbilisi|tbilisi|belgrade|sofia|kyiv|lviv|tallinn"
+            r"|vilnius|riga|guadalajara|monterrey|mexico city|bangkok|singapore|auckland|wellington)\b")
 
 
 def _loc_kind(loc):
@@ -254,7 +263,12 @@ def location_check(locations):
     return "location not US: " + "; ".join(str(l) for l in locs)[:80]
 
 
-# ---------------------------------------------------------------- hard drops (user rule) + soft tags
+# ---------------------------------------------------------------- eligibility (user rules)
+#
+# DROP if the description says any of:
+#   citizen / green card / asylee / clearance / US-persons only, ITAR, F-1/CPT/OPT not eligible,
+#   no sponsorship "now or in the future" / no H-1B, undergrad-only, PhD-only.
+# Otherwise the alert carries the posting's own sponsorship sentence so the user can decide.
 
 CITIZEN = rx(r"\b(u\.?\s?s\.?|united states|american)\s+citizens?(hip)?\b|\bcitizenship\b|\bcitizens? only\b")
 PERM_RES = rx(r"\bpermanent residen\w*|\bgreen card\b|\blawful(ly)? permanent\b")
@@ -276,44 +290,75 @@ SENT_SPLIT = re.compile(r"(?<=[.!?;•])\s+|\n+")
 CITIZEN_LABEL = rx(r"^((citizenship|clearance)( requirements?| level)?\s*[:\-]\s*)?(us|united states)\s+citizen(ship|s)?"
                    r"( required| only)?\s*\.?$")
 
-
-def hard_drop(title, desc=None, degrees=None, sponsorship=None):
-    """-> reason if the job must be ignored (citizen/PR/asylee/clearance required, or PhD-only), else None."""
-    if sponsorship and re.search(r"citizenship is required", sponsorship, re.I):
-        return "requires US citizenship (list flag)"
-    if phd_only(title, desc, degrees):
-        return "PhD only"
-    if not desc:
-        return None
-    # "U.S." / "e.g." contain periods that would split sentences in the wrong place
-    desc = re.sub(r"\bU\.\s?S\.(\s?A\.)?", "US", desc, flags=re.I)
-    desc = re.sub(r"\b(e\.g|i\.e|etc|incl|approx)\.", r"\1", desc, flags=re.I)
-    for s in SENT_SPLIT.split(desc):
-        if len(s) > 600:
-            s = s[:600]
-        if CITIZEN_LABEL.match(s.strip()):          # requirement field like "Citizenship: US Citizen"
-            return "requires US citizenship / PR / asylee"
-        hit = None
-        if CLEARANCE.search(s):
-            hit = "requires security clearance"
-        elif CITIZEN.search(s) or US_PERSON.search(s):
-            hit = "requires US citizenship / PR / asylee"
-        elif PERM_RES.search(s) or ASYLEE.search(s):
-            hit = "requires US citizenship / PR / asylee"
-        if not hit:
-            continue
-        if NEG.search(s) or INCLUSIVE.search(s) or COND.search(s):
-            continue
-        if REQ.search(s):
-            return hit
-    return None
-
+ITAR = rx(r"\bitar\b|international traffic in arms")
+SPONSOR_WORD = rx(r"sponsor\w*|\bvisa\b|authori[sz]\w*|immigration")
+_NOT = r"\b(not|unable|cannot|can'?t|won'?t|no|without)\b"
+FUTURE_SPONSOR = rx(r"now or in the future|currently or in the future|now or at any (point|time) in the future"
+                    r"|" + _NOT + r"[^.]{0,60}\bsponsor\w*[^.]{0,60}\b(future|later date)\b"
+                    r"|" + _NOT + r"[^.]{0,60}\bfuture\b[^.]{0,40}\bsponsor")
+H1B_NO = rx(r"\b(not|unable to|cannot|can'?t|won'?t|will not|does not|do not|no)\s+(\w+\s+){0,5}h-?1-?b\b"
+            r"|\bh-?1-?b\b[^.]{0,50}\b(not available|not offered|not provided|not supported|unavailable|not eligible)\b")
+F1_EXCLUDED = rx(r"\bf-?1\b[^.]{0,140}\b(not eligible|ineligible|unable|cannot|will not|won'?t)\b"
+                 r"|\b(cpt|opt)\b[^.]{0,90}\b(not eligible|will not|won'?t|cannot|unable)\b"
+                 r"|\b(not eligible|ineligible)\b[^.]{0,90}\bf-?1\b")
+F1_WELCOME = rx(r"\bf-?1\b[^.]{0,90}\beligible\b|\bcpt\b[^.]{0,60}\b(eligible|accepted|welcome|supported)\b")
+EAR = rx(r"\bexport control\w*|\bear\b|\bexport[- ]controlled\b")
 
 PHD_TITLE = rx(r"\bph\.?\s?d\.?\b|\bdoctora\w*")
 NON_PHD_DEGREE = rx(r"\b(bs|ba|ms|m\.s|msc|master\w*|bachelor\w*|undergrad\w*|mba|b\.s|bs/ms|ms/phd|bsms|bs-ms)\b")
 PHD_DESC = rx(r"(currently|actively)\s+(enrolled|pursuing)\s+(in\s+)?(a\s+)?ph\.?\s?d|ph\.?\s?d\.?\s+(students?|candidates?)"
               r"\s+only|must be (a\s+|an\s+)?(current\s+)?ph\.?\s?d|enrolled in a doctoral")
 NON_PHD_DESC = rx(r"\bmaster'?s\b|\bm\.?s\.?\b|\bbachelor'?s\b|\bundergrad\w*|\bbs/ms\b|\bms/phd\b")
+# a single requirement sentence demanding a PhD (catches "Master's" titles whose body wants a PhD)
+PHD_REQ_SENT = rx(r"\b(must|required|requires|only)\b[^.]{0,60}\b(ph\.?\s?d|doctoral)\b"
+                  r"|\b(ph\.?\s?d|doctoral)\b[^.]{0,40}\b(required|only)\b")
+
+UNDERGRAD_TITLE = rx(r"\b(freshm[ae]n|sophomores?|rising (senior|junior|sophomore)s?|high school"
+                     r"|bachelor'?s only|undergrad(uate)?s? only)\b")
+UNDERGRAD_WORD = rx(r"\bundergrad\w*")
+GRAD_OK = rx(r"\bgraduate\b|\bmaster\w*|\bms\b|\bm\.s\b|\bmba\b|\bph\.?\s?d\b|\bbs/ms\b")
+UNDERGRAD_DESC = rx(r"(pursuing|enrolled in|working toward?s?)\s+(a |an |your )?(bachelor'?s|undergraduate|b\.?s\.?)"
+                    r"(\s+degree)?(?!\s*(or|/|and)\s*(a\s+)?(master|graduate|m\.?s|advanced|ph))"
+                    r"|\brising (senior|junior|sophomore)s?\b|\bmust be an? undergraduate\b|\bundergraduate students? only\b"
+                    r"|\b(freshman|sophomore|junior) (standing|year)\b")
+NON_UNDERGRAD_DESC = rx(r"\bmaster'?s\b|\bm\.?s\.?\b(?!\s*(office|excel|word|teams|365))|\bgraduate (degree|students?|program"
+                        r"|level|school)\b|\badvanced degree\b|\bph\.?\s?d\b|\bmba\b|\bpost-?graduate\b|\bbs/ms\b")
+
+MONTHS = {m: i + 1 for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct",
+                                          "nov", "dec"])}
+SEASON_MONTH = {"spring": 5, "summer": 8, "fall": 12, "autumn": 12, "winter": 12}
+GRAD_SENT = rx(r"\bgraduat\w*|\bclass of 20\d\d")
+DATE_RE = rx(r"\b(?:(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?|(spring|summer|fall|autumn|winter))?"
+             r"[\s,/]*(20[2-3]\d)\b")
+USER_GRAD = 2028 * 12 + 5    # May 2028
+
+SPONS_LINE = rx(r"sponsor\w*|\bvisas?\b|work authori[sz]\w*|authori[sz]ed to work|authori[sz]ation to work"
+                r"|\bimmigration\b|\bh-?1-?b\b|\bcpt\b|\bopt\b|\bf-?1\b")
+SPONS_NOISE = rx(r"equal opportunity|e-?verify|regardless of|discriminat|citizenship status|protected veteran"
+                 r"|company h-?1-?b sponsorship|h-?1-?b sponsorship (history|data|stats)")
+
+TECH_WORDS = re.compile(r"(?<![\w+#])(python|java|javascript|typescript|c\+\+|c#|golang|rust|scala|kotlin|swift|"
+                        r"sql|nosql|postgres\w*|mysql|mongodb|apis?|rest(?:ful)?|graphql|microservices?|cloud|aws|azure|"
+                        r"gcp|docker|kubernetes|react|angular|vue|node\.?js|linux|git|ci/cd|machine learning|"
+                        r"deep learning|tensorflow|pytorch|software|algorithms?|data structures|back-?end|front-?end|"
+                        r"full[- ]stack|devops|databases?|spark|hadoop|llms?|nlp|computer science|programming|"
+                        r"coding|object[- ]oriented)(?![\w+#])", re.I)
+
+
+def _sentences(desc):
+    # "U.S." / "e.g." contain periods that would split sentences in the wrong place
+    desc = re.sub(r"\bU\.\s?S\.(\s?A\.)?", "US", desc, flags=re.I)
+    desc = re.sub(r"\b(e\.g|i\.e|etc|incl|approx)\.", r"\1", desc, flags=re.I)
+    return [s.strip()[:600] for s in SENT_SPLIT.split(desc) if s.strip()]
+
+
+def tech_word_count(desc):
+    words = set()
+    for m in TECH_WORDS.finditer(desc or ""):
+        w = m.group(1).lower().replace("-", "").replace(" ", "")
+        words.add(w[:-1] if w.endswith("s") and w[:-1] in ("api", "algorithm", "database", "microservice", "llm")
+                  else w)
+    return len(words)
 
 
 def phd_only(title, desc=None, degrees=None):
@@ -327,32 +372,115 @@ def phd_only(title, desc=None, degrees=None):
     return False
 
 
-NO_SPONSOR = rx(r"\b(not|unable to|cannot|can'?t|won'?t|will not|does not|do not)\s+(\w+\s+){0,4}sponsor\w*"
-                r"|without (the need for )?(current or future |future |any )?(employer |visa |company |immigration )?sponsorship"
-                r"|now or in the future|sponsorship (is )?not (available|offered|provided)"
-                r"|no (visa |immigration |h-?1b )?sponsorship")
-F1_EXCLUDED = rx(r"\bf-?1\b[^.]{0,140}\b(not eligible|ineligible|unable|cannot|will not|won'?t)\b"
-                 r"|\b(cpt|opt)\b[^.]{0,90}\b(not eligible|will not|won'?t|cannot|unable)\b"
-                 r"|\b(not eligible|ineligible)\b[^.]{0,90}\bf-?1\b")
-F1_WELCOME = rx(r"\bf-?1\b[^.]{0,90}\beligible\b|\bcpt\b[^.]{0,60}\b(eligible|accepted|welcome|supported)\b")
-EXPORT = rx(r"\bexport control\w*|\bitar\b|\bear\b|\bexport[- ]controlled\b")
+def undergrad_only_title(title):
+    t = title or ""
+    if UNDERGRAD_TITLE.search(t):
+        return True
+    return bool(UNDERGRAD_WORD.search(t) and not GRAD_OK.search(t))
 
 
-def soft_tags(desc=None, sponsorship=None):
-    tags = []
-    if sponsorship and re.search(r"does not offer", sponsorship, re.I):
-        tags.append("⚠ no sponsorship")
+def _grad_dates(s):
+    out = []
+    for m in DATE_RE.finditer(s):
+        mon = MONTHS.get((m.group(1) or "")[:3].lower()) or SEASON_MONTH.get((m.group(2) or "").lower())
+        yr = int(m.group(3))
+        out.append((yr * 12 + (mon or 1), yr * 12 + (mon or 12)))
+    return out
+
+
+def grad_window_issue(desc):
+    """Sentence whose graduation window clearly excludes May 2028, else None (flag only, never a drop)."""
+    for s in _sentences(desc or ""):
+        if not GRAD_SENT.search(s):
+            continue
+        dates = _grad_dates(s)
+        if not dates:
+            continue
+        lo, hi = min(d[0] for d in dates), max(d[1] for d in dates)
+        if len(dates) >= 2:
+            ok = lo - 2 <= USER_GRAD <= hi + 2
+        elif re.search(r"\bby\b|\bbefore\b|no later than|prior to", s, re.I):
+            ok = USER_GRAD <= hi + 2
+        elif re.search(r"or later|\bafter\b|or after|\bbeyond\b", s, re.I):
+            ok = USER_GRAD >= lo - 2
+        else:
+            ok = lo - 3 <= USER_GRAD <= hi + 3
+        if not ok:
+            return s[:160]
+    return None
+
+
+def sponsorship_line(desc):
+    """The posting's most relevant sponsorship / work-authorization sentence."""
+    best, score = None, 0
+    for s in _sentences(desc or ""):
+        if not SPONS_LINE.search(s) or SPONS_NOISE.search(s) or len(s.split()) < 5:
+            continue       # very short fragments are page widgets ("H1B Sponsorship"), not the posting's words
+        sc = 3 if re.search(r"sponsor", s, re.I) else 2 if re.search(r"authori[sz]", s, re.I) else 1
+        if sc > score:
+            best, score = s, sc
+    if best and len(best) > 220:
+        best = best[:217].rsplit(" ", 1)[0] + "…"
+    return best
+
+
+def check_eligibility(title, desc=None, degrees=None, sponsorship=None):
+    """-> {"drop": reason|None, "evidence": sentence, "line": sponsorship sentence|None, "flags": [..]}"""
+    res = {"drop": None, "evidence": "", "line": None, "flags": []}
+
+    def drop(reason, evidence=""):
+        res["drop"], res["evidence"] = reason, evidence[:240]
+        return res
+
+    if sponsorship and re.search(r"citizenship is required", sponsorship, re.I):
+        return drop("requires US citizenship (list flag)", sponsorship)
+    if phd_only(title, desc, degrees):
+        return drop("PhD only", title)
+    if undergrad_only_title(title):
+        return drop("undergrad only", title)
     if not desc:
-        return tags
-    if F1_EXCLUDED.search(desc):
-        tags.append("⚠ F-1/CPT excluded?")
-    elif F1_WELCOME.search(desc):
-        tags.append("✓ F-1/CPT ok")
-    if NO_SPONSOR.search(desc) and "⚠ no sponsorship" not in tags:
-        tags.append("⚠ no sponsorship")
-    if EXPORT.search(desc):
-        tags.append("⚠ export-control")
-    return tags
+        if sponsorship and re.search(r"does not offer", sponsorship, re.I):
+            res["line"] = "Listed as: Does Not Offer Sponsorship"
+        return res
+    for s in _sentences(desc):
+        if ITAR.search(s):
+            return drop("ITAR (US persons only)", s)
+        if CITIZEN_LABEL.match(s):          # requirement field like "Citizenship: US Citizen"
+            return drop("requires US citizenship / PR / asylee", s)
+        hit = None
+        if CLEARANCE.search(s):
+            hit = "requires security clearance"
+        elif CITIZEN.search(s) or US_PERSON.search(s) or PERM_RES.search(s) or ASYLEE.search(s):
+            hit = "requires US citizenship / PR / asylee"
+        if hit and not (NEG.search(s) or INCLUSIVE.search(s) or COND.search(s)) and REQ.search(s):
+            return drop(hit, s)
+        if F1_EXCLUDED.search(s):
+            return drop("F-1 / CPT / OPT not eligible", s)
+        if SPONSOR_WORD.search(s) and FUTURE_SPONSOR.search(s):
+            return drop("no sponsorship now or in the future", s)
+        if H1B_NO.search(s):
+            return drop("no H-1B sponsorship", s)
+        if PHD_REQ_SENT.search(s) and not NON_PHD_DESC.search(s):
+            return drop("PhD required (description)", s)
+    if UNDERGRAD_DESC.search(desc) and not NON_UNDERGRAD_DESC.search(desc):
+        m = UNDERGRAD_DESC.search(desc)
+        return drop("undergrad only (description)", desc[max(0, m.start() - 60):m.end() + 60])
+    res["line"] = sponsorship_line(desc)
+    if not res["line"] and sponsorship and re.search(r"does not offer", sponsorship, re.I):
+        res["line"] = "Listed as: Does Not Offer Sponsorship"
+    g = grad_window_issue(desc)
+    if g:
+        res["flags"].append("🎓 check graduation date: \"%s\"" % g)
+    if F1_WELCOME.search(desc):
+        res["flags"].append("✓ F-1/CPT welcome")
+    if EAR.search(desc):
+        res["flags"].append("⚠ export-control mentioned")
+    return res
+
+
+def hard_drop(title, desc=None, degrees=None, sponsorship=None):
+    """Reason the job must be ignored, else None (thin wrapper used by list-level checks and tests)."""
+    return check_eligibility(title, desc, degrees, sponsorship)["drop"]
 
 
 # ---------------------------------------------------------------- identity / de-duplication

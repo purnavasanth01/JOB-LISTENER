@@ -16,6 +16,7 @@ One run = fetch everything, alert only on jobs never seen before, save state. Gi
 """
 import argparse
 import csv
+import hashlib
 import json
 import os
 import sys
@@ -40,7 +41,16 @@ DUP_WINDOW_DAYS = 45        # same company + near-identical title alerted within
 HEARTBEAT_HOUR = 9          # daily "listener alive" message after 9 AM Central
 MAX_CSV_ROWS = 20000
 CSV_FIELDS = ["found_at", "company", "rank", "title", "role", "location", "tags", "layer", "source", "posted", "url",
-              "reason"]
+              "reason", "evidence"]
+VAGUE_MIN_TECH_WORDS = 4    # vague title is kept when its description has this many distinct tech words
+STAR_KEEP_DAYS = 60
+SOURCE_NAMES = {"workday": "Workday", "greenhouse": "Greenhouse", "ashby": "Ashby", "lever": "Lever",
+                "smartrecruiters": "SmartRecruiters", "orc": "Oracle Cloud", "amazon": "Amazon site",
+                "google": "Google site", "microsoft": "Microsoft site", "eightfold": "Netflix site",
+                "phenom": "careers site", "simplify": "Simplify list", "vansh": "vanshb03 list",
+                "jobright": "Jobright list"}
+# drops worth a second look by Claude during the resume run (judgment calls, not obvious drops)
+BORDERLINE = ("requires", "ITAR", "F-1", "sponsorship", "H-1B", "PhD", "undergrad", "vague title")
 
 
 def utcnow():
@@ -69,7 +79,7 @@ def central_now():
 # ---------------------------------------------------------------- state
 
 class State:
-    FILES = {"seen": {}, "health": {}, "meta": {}, "pending": [], "unsent": []}
+    FILES = {"seen": {}, "health": {}, "meta": {}, "pending": [], "unsent": [], "stars": {}}
 
     def __init__(self, path):
         self.path = path
@@ -96,6 +106,16 @@ class State:
             return
         p = os.path.join(self.path, name)
         new = not os.path.exists(p)
+        if not new:
+            with open(p, newline="") as f:
+                header = next(csv.reader(f), [])
+            if header != CSV_FIELDS:              # columns were added: rewrite once with the new header
+                with open(p, newline="") as f:
+                    old = list(csv.DictReader(f))
+                with open(p, "w", newline="") as f:
+                    w = csv.DictWriter(f, fieldnames=CSV_FIELDS, extrasaction="ignore")
+                    w.writeheader()
+                    w.writerows(old)
         with open(p, "a", newline="") as f:
             w = csv.DictWriter(f, fieldnames=CSV_FIELDS, extrasaction="ignore")
             if new:
@@ -158,7 +178,7 @@ class Run:
             self.index.add(k, e)
         self.targets, self.alias = self._load_targets()
         self.status = []                  # status lines (broken / recovered / seeded) sent once per run
-        self.rows = {"alerts.csv": [], "dropped.csv": [], "missed.csv": [], "backlog.csv": []}
+        self.rows = {"alerts.csv": [], "dropped.csv": [], "missed.csv": [], "backlog.csv": [], "borderline.csv": []}
         self.backlog_fps = set()
         self.alerts = []
         self.groups = {}
@@ -197,22 +217,38 @@ class Run:
         self.index.add(job["key"], e)
         self.st.meta.get("detail_fails", {}).pop(job["key"], None)
 
-    def row(self, job, role="", tags=(), reason="", location=None):
+    def row(self, job, role="", tags=(), reason="", location=None, evidence=""):
         t = job.get("target")
         return {"found_at": central_now().strftime("%Y-%m-%d %H:%M"), "company": job["company"],
                 "rank": t["rank"] if t else "", "title": job.get("title"), "role": role,
                 "location": location if location is not None else "; ".join(job.get("locations") or [])[:120],
                 "tags": ", ".join(tags), "layer": job["layer"], "source": job["source"],
-                "posted": job.get("posted") or "", "url": job.get("url") or "", "reason": reason}
+                "posted": job.get("posted") or "", "url": job.get("url") or "", "reason": reason,
+                "evidence": evidence}
+
+    def drop(self, job, reason, role="", evidence=""):
+        self.record(job, "drop", reason)
+        row = self.row(job, role, reason=reason, evidence=evidence)
+        self.rows["dropped.csv"].append(row)
+        if any(b in reason for b in BORDERLINE):
+            self.rows["borderline.csv"].append(row)
+
+    @staticmethod
+    def listener_label(job):
+        kind = job["source"].split(":")[0]
+        return "Listener %s (%s)" % (job["layer"][-1], SOURCE_NAMES.get(kind, kind))
 
     # ---------------- filters
-    def prefilter(self, job):
-        """Title / list-level checks. -> (role, None) or (None, reason)."""
+    def prefilter(self, job, allow_vague=False):
+        """Title / list-level checks. -> (role, None) or (None, reason).
+        allow_vague: a title that is merely unclear ("not a software role") is kept for the description check."""
         title = job.get("title") or ""
         r = rules.category_excluded(job.get("category"), title)
         if r:
             return None, r
         role, r = rules.classify_role(title, job.get("category"))
+        if r == "not a software role" and allow_vague:
+            job["vague"], role, r = True, "Vague title", None
         if r:
             return None, r
         r = (rules.term_check(title, job.get("terms"), job.get("season"))
@@ -221,12 +257,6 @@ class Run:
         if r:
             return None, r
         return role, None
-
-    def postfilter(self, job, desc, locs):
-        title = job.get("title") or ""
-        return ((rules.location_check(locs) if locs else None)
-                or rules.term_check(title, job.get("terms"), job.get("season"), desc)
-                or rules.hard_drop(title, desc, job.get("degrees"), job.get("sponsorship")))
 
     # ---------------- fetching
     def fetch_all(self):
@@ -395,10 +425,9 @@ class Run:
         for j in candidates:
             if j["key"] in self.st.seen:
                 continue
-            role, reason = self.prefilter(j)
+            role, reason = self.prefilter(j, allow_vague=True)
             if reason:
-                self.record(j, "drop", reason)
-                self.rows["dropped.csv"].append(self.row(j, reason=reason))
+                self.drop(j, reason)
                 continue
             desc, locs = j.get("desc"), None
             if desc is None and (j.get("detail") or j.get("aggregator")):
@@ -416,24 +445,36 @@ class Run:
                         self.defer(j)
                         continue
                     desc = None   # alert anyway, tagged "desc not checked"
-            reason = self.postfilter(j, desc, locs)
+            flags = []
+            if j.get("vague"):                            # second pass: unclear title, judge by the description
+                n = rules.tech_word_count(desc)
+                if n < VAGUE_MIN_TECH_WORDS:
+                    reason = "not a software role (vague title, %d tech words in description)" % n
+                    self.drop(j, reason if n >= 2 else "not a software role")
+                    continue
+                flags.append("🔍 vague title, %d tech words in description" % n)
+            title = j.get("title") or ""
+            reason = ((rules.location_check(locs) if locs else None)
+                      or rules.term_check(title, j.get("terms"), j.get("season"), desc))
             if reason:
-                self.record(j, "drop", reason)
-                self.rows["dropped.csv"].append(self.row(j, role, reason=reason))
+                self.drop(j, reason, role)
                 continue
-            tags = rules.soft_tags(desc, j.get("sponsorship"))
+            elig = rules.check_eligibility(title, desc, j.get("degrees"), j.get("sponsorship"))
+            if elig["drop"]:
+                self.drop(j, elig["drop"], role, elig["evidence"])
+                continue
+            flags += elig["flags"]
             if not desc:
-                tags.append("desc not checked")
+                flags.append("desc not checked")
             t = j.get("target")
             if t and t.get("flag"):
-                tags.append("⚠ " + t["flag"])
-            if j.get("l3_tag"):
-                tags.append(j["l3_tag"])
+                flags.append("⚠ " + t["flag"])
+            if j.get("l3_tag") and j["l3_tag"] != "via L3":
+                flags.append(j["l3_tag"])
             toks = rules.title_tokens(j["title"])
             gkey = (j["cid"], toks)
-            if gkey in self.groups:                      # same title, another location -> one alert line
-                g = self.groups[gkey]
-                g["count"] += 1
+            if gkey in self.groups:                      # same title, another location -> one alert
+                self.groups[gkey]["count"] += 1
                 self.record(j, "alert")
                 continue
             dup = self.index.match(j["cid"], toks, self.keys_of(j), only_alerted_since=since)
@@ -441,12 +482,19 @@ class Run:
                 self.record(j, "dup:" + dup)
                 continue
             loc = "; ".join((locs or j.get("locations") or [])[:3])
-            a = {"key": j["key"], "company": j["company"], "rank": t["rank"] if t else None, "title": j["title"],
-                 "role": role, "location": loc, "tags": tags, "url": j.get("url"), "layer": j["layer"], "count": 1}
+            hid = hashlib.sha1(j["key"].encode()).hexdigest()[:10]
+            a = {"key": j["key"], "hid": hid, "company": j["company"], "rank": t["rank"] if t else None,
+                 "target": bool(t), "title": j["title"], "role": role, "location": loc, "tags": flags,
+                 "line": elig["line"], "url": j.get("url"), "layer": j["layer"], "listener": self.listener_label(j),
+                 "count": 1}
             self.groups[gkey] = a
             self.alerts.append(a)
             self.record(j, "alert")
-            row = self.row(j, role, tags, location=loc)
+            self.st.stars[hid] = {"key": j["key"], "company": j["company"], "title": j["title"], "url": j.get("url"),
+                                  "location": loc, "rank": a["rank"], "listener": a["listener"], "role": role,
+                                  "status": "starred" if t else "new", "alerted": self.now_s,
+                                  "starred": self.now_s if t else None}
+            row = self.row(j, role, flags, location=loc, evidence=elig["line"] or "")
             self.rows["alerts.csv"].append(row)
             if j.get("l3_tag") == "MISSED by L1/L2":
                 self.rows["missed.csv"].append(row)
@@ -460,15 +508,34 @@ class Run:
         today = central_now().strftime("%Y-%m-%d")
         d = self.st.meta.get("days", {}).get(today, {})
         bad = sorted(s for s, v in self.source_ok.items() if not v)
+        starred = sum(1 for e in self.st.stars.values() if e.get("status") == "starred")
         return ("<b>Listener status</b>\nLast check: %s CT\nSources OK: %d/%d%s\nToday so far: %d alerts, %d dropped, "
-                "%d checks\nJobs known: %d\nBacklog/alerts files: state branch on GitHub" % (
+                "%d checks\n⭐ Starred jobs: %d\nJobs known: %d\nBacklog/alerts files: state branch on GitHub" % (
                     central_now().strftime("%b %d %H:%M"), len(self.source_ok) - len(bad), len(self.source_ok),
                     (" (down: " + ", ".join(bad[:5]) + ")") if bad else "", d.get("alerts", 0), d.get("dropped", 0),
-                    d.get("runs", 0), len(self.st.seen)))
+                    d.get("runs", 0), starred, len(self.st.seen)))
+
+    def on_button(self, action, hid):
+        """⭐ = interested (one-way: never un-stars). ❌ = remove. Returns the new status or None."""
+        e = self.st.stars.get(hid)
+        if not e:
+            return None
+        if action == "x":
+            e["status"], e["removed"] = "removed", self.now_s
+        elif action == "s" and e.get("status") != "removed":
+            if e.get("status") != "starred":
+                e["status"], e["starred"] = "starred", self.now_s
+        self.log("button %s on %s (%s — %s) -> %s" % (action, hid, e["company"], e["title"][:40], e["status"]))
+        return e["status"]
+
+    def prune_stars(self):
+        cutoff = iso(self.now - timedelta(days=STAR_KEEP_DAYS))
+        for hid in [h for h, e in self.st.stars.items() if (e.get("alerted") or "") < cutoff]:
+            self.st.stars.pop(hid)
 
     def deliver(self):
         if not (self.args.dry_run or self.args.no_notify):
-            notify.telegram_sync(self.st.meta, self.log, self.status_text)
+            notify.telegram_sync(self.st.meta, self.log, self.status_text, self.on_button)
         batch = self.st.unsent + self.alerts
         if not batch:
             return
@@ -477,13 +544,17 @@ class Run:
             why = "dry run" if self.args.dry_run else "--no-notify" if self.args.no_notify else "no NTFY_TOPIC/SMTP set"
             self.log("ALERTS (%s, not sent): %d" % (why, len(batch)))
             for a in batch:
-                self.log("  • %s #%s | %s | %s | %s | %s | %s" % (a["company"], a.get("rank") or "-", a["title"],
-                                                                  a["role"], a.get("location"), ", ".join(a["tags"]), a["url"]))
+                self.log("  • %s #%s | %s | %s | %s | %s | %s | 💬 %s" % (
+                    a["company"], a.get("rank") or "-", a["title"], a.get("listener", a["layer"]), a.get("location"),
+                    ", ".join(a["tags"]), a["url"], a.get("line") or "-"))
             # secrets not set yet: keep the alerts queued so they are delivered once they are
             self.st.unsent = [] if (self.args.dry_run or self.args.no_notify) else batch[-200:]
             return
         if notify.send_jobs(batch, self.log):
             self.log("sent %d alerts" % len(batch))
+            for a in batch:
+                if a.get("msg_id") and a.get("hid") in self.st.stars:
+                    self.st.stars[a["hid"]]["msg_id"] = a["msg_id"]
             self.st.unsent = []
         else:
             self.log("alert delivery FAILED; will retry next run")
@@ -542,6 +613,7 @@ class Run:
         self.process(results)
         self.deliver()
         self.heartbeat()
+        self.prune_stars()
         self.log("done in %.1fs: %d alerts, %d dropped, %d deferred, %d descriptions fetched, %d jobs known" % (
             time.time() - self.t0, len(self.alerts), len(self.rows["dropped.csv"]), len(self.st.pending),
             self.details_used, len(self.st.seen)))

@@ -37,17 +37,21 @@ class Roles(unittest.TestCase):
         "Sparse Linear Algebra Libraries Intern - Summer 2027": "Software",
         "Applied Research Intern, Integrated Sensing and Communications (ISAC)": "Research",
         "Research Intern, Quantum Simulation and AI - 2027": "Research",
+        "Embedded Software Engineer Intern": "Software",
+        "Robotics Software Intern": "Software",
+        "GPU Compiler Intern": "Software",
+        "Product Manager Intern - Summer 2027": "Product/Program",
     }
     DROP = [
-        "AutoCAD Drafting Intern", "Mechanical Engineering Intern", "Embedded Software Engineer Intern",
-        "Firmware Engineer Intern", "ASIC Physical Design Intern - 2027", "DFT Intern - 2027",
-        "Robotics Software Intern", "Autonomy Engineer Intern", "Perf Engineering Intern - 2027",
-        "GPU Compiler Intern", "Computer Architecture Intern - 2027", "Quantitative Researcher Intern",
+        "AutoCAD Drafting Intern", "Mechanical Engineering Intern", "Embedded Systems Intern",
+        "Firmware Engineer Intern", "Robotics Engineer Intern", "ASIC Physical Design Intern - 2027", "DFT Intern - 2027",
+        "Autonomy Engineer Intern", "Perf Engineering Intern - 2027",
+        "Computer Architecture Intern - 2027", "Quantitative Researcher Intern",
         "Quant Trader Intern", "Sales Engineer Intern", "Solutions Engineer Intern", "IT Support Intern",
         "Systems Administrator Intern", "Business Analyst Intern", "Financial Analyst Intern",
         "Marketing Intern", "MBA Intern - Summer 2027", "Industrial Design Intern - Enterprise (ISG)",
         "2027 Summer Analyst - Investment Banking", "Circuit Validation Engineer Intern",
-        "Supply Chain Analyst Intern",
+        "Supply Chain Analyst Intern", "Product Development Intern - Mining",
     ]
 
     def test_keep(self):
@@ -83,7 +87,7 @@ class Locations(unittest.TestCase):
                     "Los Gatos,California,United States of America", "2 Locations", "Seattle", "Remote"]:
             self.assertIsNone(rules.location_check([loc]), loc)
         for loc in ["China, Shanghai", "Toronto, ON, Canada", "London, United Kingdom", "Bengaluru, India",
-                    "Taiwan, Hsinchu", "Sao Paulo, Sao Paulo, Brazil"]:
+                    "Taiwan, Hsinchu", "Sao Paulo, Sao Paulo, Brazil", "Doha, Qatar"]:
             self.assertIsNotNone(rules.location_check([loc]), loc)
         self.assertIsNone(rules.location_check(["Toronto, Canada", "Austin, TX"]))
         self.assertIsNone(rules.location_check(["Bellevue, Washington; Mountain View, California; Toronto, Canada"]))
@@ -136,13 +140,51 @@ class HardDrops(unittest.TestCase):
         self.assertIsNotNone(rules.hard_drop("SWE Intern", sponsorship="U.S. Citizenship is Required"))
         self.assertIsNone(rules.hard_drop("SWE Intern", sponsorship="Does Not Offer Sponsorship"))
 
-    def test_soft_tags(self):
-        t = rules.soft_tags("Students on an F1 visa (including those with CPT or OPT authorization) are not eligible.")
-        self.assertIn("⚠ F-1/CPT excluded?", t)
-        t = rules.soft_tags("F-1 students are eligible if they are using CPT.")
-        self.assertIn("✓ F-1/CPT ok", t)
-        t = rules.soft_tags("Candidates must be authorized to work without sponsorship now or in the future.")
-        self.assertIn("⚠ no sponsorship", t)
+    def test_new_drops(self):
+        e = rules.check_eligibility
+        cases = {
+            "This role is subject to ITAR.": "ITAR (US persons only)",
+            "Students on an F1 visa (including those with CPT or OPT authorization) are not eligible.": "F-1 / CPT / OPT not eligible",
+            "Candidates must be authorized to work without sponsorship now or in the future.": "no sponsorship now or in the future",
+            "We will not sponsor future employment visas for this role.": "no sponsorship now or in the future",
+            "We do not sponsor H-1B visas.": "no H-1B sponsorship",
+            "Must be currently pursuing a Bachelor's degree in Computer Science.": "undergrad only (description)",
+            "Open to rising seniors in Computer Science.": "undergrad only (description)",
+            "Candidates must be enrolled in a PhD program.": "PhD required (description)",
+        }
+        for d, want in cases.items():
+            self.assertEqual(e("Software Engineer Intern", d)["drop"], want, d)
+        keeps = [
+            "We are unable to sponsor visas for this internship.",
+            "Currently pursuing a Bachelor's or Master's degree in CS.",
+            "Applicants must be authorized to work in the US.",
+            "F-1 students are eligible if they are using CPT.",
+            "We sponsor H-1B for full-time conversions.",
+        ]
+        for d in keeps:
+            self.assertIsNone(e("Software Engineer Intern", d)["drop"], d)
+        self.assertEqual(e("Software Engineer Intern - Sophomore")["drop"], "undergrad only")
+        self.assertEqual(e("Undergraduate Software Engineering Intern")["drop"], "undergrad only")
+        self.assertIsNone(e("Undergraduate/Graduate Software Intern")["drop"])
+        self.assertEqual(e("Master's ML Intern", "Must be enrolled in a PhD program.")["drop"], "PhD required (description)")
+
+    def test_line_and_flags(self):
+        r = rules.check_eligibility("SWE Intern", "Great team. We are unable to sponsor visas for this internship. Free lunch.")
+        self.assertEqual(r["line"], "We are unable to sponsor visas for this internship.")
+        r = rules.check_eligibility("SWE Intern", "F-1 students are eligible if they are using CPT.")
+        self.assertIn("✓ F-1/CPT welcome", r["flags"])
+        r = rules.check_eligibility("SWE Intern", "Must be graduating between December 2026 and June 2027.")
+        self.assertTrue(any("graduation" in f for f in r["flags"]))
+        r = rules.check_eligibility("SWE Intern", "Expected graduation between December 2027 and June 2028.")
+        self.assertFalse(any("graduation" in f for f in r["flags"]))
+        r = rules.check_eligibility("SWE Intern", "Company H1B Sponsorship. Build APIs.")
+        self.assertIsNone(r["line"])
+        r = rules.check_eligibility("SWE Intern", None, sponsorship="Does Not Offer Sponsorship")
+        self.assertEqual(r["line"], "Listed as: Does Not Offer Sponsorship")
+
+    def test_tech_words(self):
+        self.assertGreaterEqual(rules.tech_word_count("Build REST APIs in Python and Java on AWS with Docker."), 4)
+        self.assertLess(rules.tech_word_count("Manage store staff and inventory with Excel."), 2)
 
 
 class Identity(unittest.TestCase):

@@ -11,15 +11,23 @@ Phone + email alert within minutes of a new **Spring / Summer / Fall 2027** soft
 Targets live in `targets.json` (H-1B sponsors, ranked). Filters live in `rules.py`.
 
 ## What gets alerted
-- Any software-type internship: SWE, full stack, backend, frontend, data, AI/ML, cloud, DevOps, QA/automation, security, UI/UX, FDE, PM/TPM, research (not PhD-only), data/BI analyst, bank technology analyst.
-- Excluded roles: embedded/hardware, semiconductor, robotics/autonomy, GPU/performance/compilers, quant/trading, sales/solutions/support, IT/sysadmin, non-tech.
+- Any software-type internship: SWE, full stack, backend, frontend, data, AI/ML, cloud, DevOps, QA/automation, security, UI/UX, FDE, PM/TPM, research, data/BI analyst, bank technology analyst, plus robotics / embedded **software** and compilers.
+- Excluded: pure hardware / embedded / robotics engineering, semiconductor, GPU/performance, quant/trading, sales/solutions/support, IT/sysadmin, non-tech.
+- Vague titles ("Engineering Intern") are not dropped blindly: the description is read and the job is kept if it has 4+ distinct tech words (tagged 🔍).
 - Terms: any 2027 term, or no term listed. US locations (or unknown).
-- **Dropped only if** the posting requires US citizenship / green card / asylee status / security clearance, or is PhD-only. Everything else is kept and tagged (`⚠ no sponsorship`, `⚠ F-1/CPT excluded?`, `✓ F-1/CPT ok`, `⚠ export-control`, target flags).
+- **Dropped** when the posting requires US citizenship / green card / asylee / clearance / US persons, mentions ITAR, says F-1/CPT/OPT not eligible, says no sponsorship "now or in the future" or no H-1B, is undergrad-only, or is PhD-only.
+- Otherwise the alert quotes the posting's own sponsorship sentence (💬). 🎓 flags a graduation window that excludes May 2028.
+
+## Telegram buttons
+- 🔗 Apply · ⭐ Star (interested; resume will be made) · ❌ Remove (ignored, message deleted).
+- Target companies (top 70) are starred automatically; ⭐ never un-stars. Taps are processed on the next check (~3 min).
+- Starred jobs live in `stars.json` on the state branch.
 
 ## Files (on the `state` branch, updated every run)
 - `backlog.csv` – everything already open when the listener first saw each source (go through these).
 - `alerts.csv` – every alert sent. `missed.csv` – jobs only Listener 3 caught.
-- `dropped.csv` – every new job that was filtered out, with the reason (audit this now and then).
+- `dropped.csv` – every new job that was filtered out, with the reason and the sentence that caused it.
+- `borderline.csv` – only the judgment-call drops (eligibility wording, vague titles) for a second look.
 - `last_run.log` – what the latest run did. `health.json` – per-source status.
 
 ## Setup (one time)

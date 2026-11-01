@@ -7,7 +7,7 @@
     {"rank": 4, "name": "Microsoft", "aliases": [], "sources": [{"type": "microsoft"}]},
     {"rank": 5, "name": "Apple", "aliases": [], "sources": []},
     {"rank": 6, "name": "Oracle", "aliases": [], "sources": [{"type": "orc", "host": "eeho.fa.us2.oraclecloud.com", "site": "CX_45001"}]},
-    {"rank": 7, "name": "ByteDance/TikTok", "aliases": ["TikTok", "ByteDance", "TikTok USDS"], "sources": []},
+    {"rank": 7, "name": "ByteDance/TikTok", "aliases": ["TikTok", "ByteDance", "TikTok USDS", "TikTok USDS Joint Venture", "TikTok Inc"], "sources": []},
     {"rank": 8, "name": "Nvidia", "aliases": ["NVIDIA"], "sources": [{"type": "workday", "host": "nvidia.wd5.myworkdayjobs.com", "tenant": "nvidia", "site": "NVIDIAExternalCareerSite"}]},
     {"rank": 9, "name": "Tesla", "aliases": [], "sources": []},
     {"rank": 10, "name": "Cisco", "aliases": ["Cisco Systems", "Splunk"], "sources": [{"type": "workday", "host": "cisco.wd5.myworkdayjobs.com", "tenant": "cisco", "site": "cisco_careers"}]},

@@ -45,34 +45,42 @@ def tg_api(method, payload):
     return d.get("result")
 
 
-def tg_send(text, buttons=None):
+def tg_send(text, buttons=None, markup=None):
+    """Send to the linked chat. buttons = [(label, url)] rows; markup = raw inline_keyboard. Returns message id."""
     if not _tg_chat:
         return False
     msg = {"chat_id": _tg_chat, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True}
     if buttons:
-        msg["reply_markup"] = {"inline_keyboard": [[{"text": t, "url": u}] for t, u in buttons]}
-    tg_api("sendMessage", msg)
-    return True
+        markup = [[{"text": t, "url": u}] for t, u in buttons]
+    if markup:
+        msg["reply_markup"] = {"inline_keyboard": markup}
+    r = tg_api("sendMessage", msg)
+    return (r or {}).get("message_id") or True
 
 
 HELP = ("<b>Job listener bot</b>\nI message you every new 2027 internship within minutes.\n\n"
-        "/status – listener health and today's numbers\n/help – this message")
+        "⭐ Star = interested (a resume will be made). Target companies are starred automatically.\n"
+        "❌ Remove = ignore the job.\nButtons are processed on the next check (within ~3 min).\n\n"
+        "/status – listener health, today's numbers, starred count\n/help – this message")
 
 
-def telegram_sync(meta, log, status_text):
-    """Called once per run: find your chat, answer commands sent since the last run."""
+def telegram_sync(meta, log, status_text, on_button=None):
+    """Called once per run: find your chat, answer commands and ⭐/❌ taps sent since the last run."""
     global _tg_chat
     if not os.environ.get("TELEGRAM_TOKEN"):
         return
     _tg_chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip() or meta.get("tg_chat")
     try:
         updates = tg_api("getUpdates", {"offset": meta.get("tg_offset", 0), "timeout": 0,
-                                        "allowed_updates": ["message"]}) or []
+                                        "allowed_updates": ["message", "callback_query"]}) or []
     except Exception as e:  # noqa: BLE001
         log("telegram getUpdates failed: %s" % e)
         return
     for u in updates:
         meta["tg_offset"] = u["update_id"] + 1
+        if u.get("callback_query"):
+            _button(u["callback_query"], log, on_button)
+            continue
         m = u.get("message") or {}
         chat = m.get("chat") or {}
         text = (m.get("text") or "").strip().lower()
@@ -90,6 +98,40 @@ def telegram_sync(meta, log, status_text):
             _safe(log, tg_send, HELP)
 
 
+def _button(cq, log, on_button):
+    msg = cq.get("message") or {}
+    if str((msg.get("chat") or {}).get("id")) != str(_tg_chat) or not on_button:
+        return
+    action, _, hid = (cq.get("data") or "").partition(":")
+    status = on_button(action, hid)
+    try:   # the tap may be minutes old; Telegram can reject a late answer, which is harmless
+        tg_api("answerCallbackQuery", {"callback_query_id": cq["id"],
+                                       "text": {"starred": "⭐ Starred", "removed": "❌ Removed"}.get(status, "Done")})
+    except Exception:  # noqa: BLE001
+        pass
+    mid = msg.get("message_id")
+    if not mid or status is None:
+        return
+    if status == "removed":
+        try:
+            tg_api("deleteMessage", {"chat_id": _tg_chat, "message_id": mid})
+        except Exception:  # noqa: BLE001 - older than 48 h: cannot delete, mark it instead
+            _safe(log, tg_api, "editMessageText", {"chat_id": _tg_chat, "message_id": mid, "parse_mode": "HTML",
+                                                   "text": "❌ <s>%s</s>" % html.escape(msg.get("text", "")[:300])})
+        return
+    url = _first_url(msg)
+    _safe(log, tg_api, "editMessageReplyMarkup", {"chat_id": _tg_chat, "message_id": mid,
+                                                  "reply_markup": {"inline_keyboard": _keyboard(url, hid, True)}})
+
+
+def _first_url(msg):
+    for row in ((msg.get("reply_markup") or {}).get("inline_keyboard") or []):
+        for b in row:
+            if b.get("url"):
+                return b["url"]
+    return None
+
+
 def _safe(log, fn, *a):
     try:
         return fn(*a)
@@ -98,33 +140,61 @@ def _safe(log, fn, *a):
         return False
 
 
+def _keyboard(url, hid, starred):
+    rows = []
+    if url and url.startswith(("http://", "https://")):
+        rows.append([{"text": "🔗 Apply", "url": url}])
+    if hid:
+        rows.append([{"text": "⭐ Starred ✓" if starred else "⭐ Star", "callback_data": "s:" + hid},
+                     {"text": "❌ Remove", "callback_data": "x:" + hid}])
+    return rows
+
+
 def _tg_job(a):
+    """Target companies get the loud format; everything else stays plain."""
     e = html.escape
-    who = "<b>%s</b>%s" % (e(a["company"]), " #%d" % a["rank"] if a.get("rank") else "")
-    loc = e((a.get("location") or "?")[:50]) + (" ×%d" % a["count"] if a.get("count", 1) > 1 else "")
-    tags = (" · " + e(", ".join(a["tags"]))) if a.get("tags") else ""
-    return "%s — <a href=\"%s\">%s</a>\n%s · %s%s" % (who, e(a.get("url") or "", quote=True), e(a["title"]),
-                                                      e(a["role"]), loc, tags)
+    loc = e((a.get("location") or "?")[:80]) + (" (+%d more)" % (a["count"] - 1) if a.get("count", 1) > 1 else "")
+    listener = e(a.get("listener") or a.get("layer") or "")
+    line = ("💬 <i>\"%s\"</i>" % e(a["line"])) if a.get("line") else ""
+    tags = "\n".join(e(t) for t in a.get("tags") or [])
+    if a.get("target"):
+        parts = ["🔥🔥 <b>TARGET #%s · H-1B SPONSOR</b> 🔥🔥" % a.get("rank"),
+                 "🏢 <b>%s</b>" % e(a["company"].upper()),
+                 "💼 <b>%s</b>" % e(a["title"]),
+                 "📍 %s" % loc,
+                 "📡 %s" % listener]
+    else:
+        parts = ["<b>%s</b> — %s" % (e(a["company"]), e(a["title"])),
+                 "📍 %s · 📡 %s" % (loc, listener)]
+    if line:
+        parts.append(line)
+    if tags:
+        parts.append(tags)
+    if a.get("target"):
+        parts.append("━━━━━━━━━━━━━━━")
+    return "\n".join(parts)[:TG_MAX]
+
+
+TG_INDIVIDUAL_MAX = 30   # more than this in one run: the rest go into one digest message
 
 
 def telegram_jobs(alerts):
-    """One message per ~15 jobs; a single job also gets an Apply button."""
+    """One message per job with 🔗 Apply / ⭐ Star / ❌ Remove; sets a["msg_id"]."""
     if not _tg_chat:
         return False
-    n = len(alerts)
-    chunks, cur = [], "🔔 <b>%d new internship%s</b>\n" % (n, "" if n == 1 else "s")
-    for a in alerts:
-        block = "\n" + _tg_job(a) + "\n"
-        if len(cur) + len(block) > TG_MAX:
-            chunks.append(cur)
-            cur = ""
-        cur += block
-    chunks.append(cur)
-    for i, c in enumerate(chunks):
-        buttons = [("Apply: " + alerts[0]["company"][:30], alerts[0]["url"])] if n == 1 and alerts[0].get("url") else None
-        tg_send(c, buttons)
-        if i < len(chunks) - 1:
-            time.sleep(1.1)       # Telegram allows ~1 message/second per chat
+    for i, a in enumerate(alerts[:TG_INDIVIDUAL_MAX]):
+        if i:
+            time.sleep(1.05)       # Telegram allows ~1 message/second per chat
+        a["msg_id"] = tg_send(_tg_job(a), markup=_keyboard(a.get("url"), a.get("hid"), a.get("target")))
+    rest = alerts[TG_INDIVIDUAL_MAX:]
+    if rest:
+        time.sleep(1.05)
+        lines = ["📦 <b>%d more new internships</b> (targets are auto-starred)" % len(rest)]
+        for a in rest:
+            lines.append("• <b>%s</b> — <a href=\"%s\">%s</a>" % (html.escape(a["company"]),
+                                                                html.escape(a.get("url") or "", quote=True),
+                                                                html.escape(a["title"])))
+        tg_send("\n".join(lines)[:TG_MAX])
     return True
 
 
@@ -132,7 +202,9 @@ def _line(a):
     who = a["company"] + (" #%d" % a["rank"] if a.get("rank") else "")
     extra = " ×%d locations" % a["count"] if a.get("count", 1) > 1 else ""
     tags = (" [" + ", ".join(a["tags"]) + "]") if a.get("tags") else ""
-    return "%s — %s | %s | %s%s%s" % (who, a["title"], a["role"], (a.get("location") or "?")[:40], extra, tags)
+    line = (' | 💬 "%s"' % a["line"]) if a.get("line") else ""
+    return "%s — %s | %s | %s%s%s%s" % (who, a["title"], a.get("listener") or a["role"], (a.get("location") or "?")[:40],
+                                       extra, line, tags)
 
 
 def push(title, body, click=None, actions=None, priority="high", tags="rotating_light"):
@@ -200,15 +272,20 @@ def send_jobs(alerts, log):
         log("push failed: %s" % e)
     text = "\n\n".join("%s\n%s" % (_line(a), a["url"]) for a in alerts)
     rows = "".join(
-        "<tr><td><b>{c}</b>{r}</td><td><a href='{u}'>{t}</a></td><td>{role}</td><td>{loc}</td><td>{tags}</td><td>{layer}</td></tr>"
-        .format(c=html.escape(a["company"]), r=(" #%d" % a["rank"]) if a.get("rank") else "", u=html.escape(a["url"] or ""),
-                t=html.escape(a["title"]), role=html.escape(a["role"]),
+        "<tr{bg}><td><b>{c}</b>{r}</td><td><a href='{u}'>{t}</a></td><td>{loc}</td><td>{layer}</td><td><i>{line}</i></td>"
+        "<td>{tags}</td></tr>"
+        .format(bg=" style='background:#fff3cd'" if a.get("target") else "",
+                c=("🔥 " if a.get("target") else "") + html.escape(a["company"]),
+                r=(" #%d" % a["rank"]) if a.get("rank") else "", u=html.escape(a["url"] or ""),
+                t=html.escape(a["title"]),
                 loc=html.escape((a.get("location") or "?")[:60]) + (" ×%d" % a["count"] if a.get("count", 1) > 1 else ""),
-                tags=html.escape(", ".join(a.get("tags") or [])), layer=a.get("layer", ""))
+                layer=html.escape(a.get("listener") or a.get("layer", "")), line=html.escape(a.get("line") or ""),
+                tags=html.escape(", ".join(a.get("tags") or [])))
         for a in alerts)
-    page = ("<p>{n} new internship{s}. Apply today.</p><table border=1 cellpadding=5 cellspacing=0 "
-            "style='border-collapse:collapse;font-family:sans-serif;font-size:13px'><tr><th>Company</th><th>Title (apply link)"
-            "</th><th>Role</th><th>Location</th><th>Tags</th><th>Found by</th></tr>{rows}</table>"
+    page = ("<p>{n} new internship{s}. 🔥 = target company (auto-starred). Apply today.</p><table border=1 cellpadding=5 "
+            "cellspacing=0 style='border-collapse:collapse;font-family:sans-serif;font-size:13px'><tr><th>Company</th>"
+            "<th>Title (apply link)</th><th>Location</th><th>Found by</th><th>Sponsorship line</th><th>Notes</th></tr>"
+            "{rows}</table>"
             ).format(n=n, s="" if n == 1 else "s", rows=rows)
     try:
         ok |= email("🔔 " + title, text, page)
