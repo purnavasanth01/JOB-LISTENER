@@ -331,6 +331,18 @@ def reference(ol, rt, main_tex, ledger):
     return ref
 
 
+class _Session:
+    """Closes an already-entered Overleaf session at the end of the with-block."""
+    def __init__(self, ol):
+        self.ol = ol
+
+    def __enter__(self):
+        return self.ol
+
+    def __exit__(self, *exc):
+        self.ol.__exit__(*exc)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--job", help="force this starred job id")
@@ -395,7 +407,17 @@ def main():
     rules = open(RULES, encoding="utf-8").read()
     bank = rt.bank_from(LATEX_FILES)
     made = []
-    with overleaf.Overleaf(headless=not args.headed) as ol:
+    try:
+        ol_session = overleaf.Overleaf(headless=not args.headed).__enter__()
+    except overleaf.LoginNeeded as ex:
+        today = dt.date.today().isoformat()
+        if ledger.get("login_notified") != today:      # once a day, not every 5 minutes
+            notify_mac("Overleaf login needed", "Double-click 'Overleaf login.command' in JOB-LISTENER/mac")
+            ledger["login_notified"] = today
+            save_json(LEDGER, ledger)
+        log("Overleaf session expired: %s" % ex)
+        return
+    with _Session(ol_session) as ol:
         ctx = dict(rt=rt, main=main_tex, rules=rules, ol=ol, bank=bank, ref=reference(ol, rt, main_tex, ledger))
         save_json(LEDGER, ledger)
         for hid, e, jd in todo:
