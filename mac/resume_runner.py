@@ -10,7 +10,7 @@ launchd runs this at login, after wake, and every 5 minutes while awake. For eac
   4. compile on Overleaf, measure the page (1 page, MAIN's margins, bottom 730-742.73pt, no wraps/orphans,
      diff vs MAIN limited to title/bullets/skills/Airkrit, never-claim list)
   5. one retry with the exact failure if a check fails
-  6. save <Stem>.tex, <Stem>.pdf and <Stem>.md (JD + fit) to INTERNSHIP/RESUMES_2/<date>/ and update TO_APPLY.html/csv
+  6. save RESUMES_2/PDF RESUMES/<Stem>.pdf, LATEX/<Stem>.tex, JOB DESCRIPTIONS/<Stem>.md; update TO_APPLY.html/csv
 
   mac/.venv/bin/python mac/resume_runner.py                 normal run (what launchd does)
   mac/.venv/bin/python mac/resume_runner.py --job <hid>     force one starred job (even if done before)
@@ -236,21 +236,25 @@ def make_resume(ctx, job, jd):
                 attempts=attempt, fill_ok=bool(res.get("FILL_OK")))
 
 
+FOLDERS = {"pdf": "PDF RESUMES", "tex": "LATEX", "jd": "JOB DESCRIPTIONS"}
+
+
 def save_outputs(job, jd, out, stem):
-    day = dt.date.today().isoformat()
-    d = os.path.join(OUT, day)
-    os.makedirs(d, exist_ok=True)
+    """PDFs, .tex and JD .md files each go into their own folder inside RESUMES_2."""
+    dirs = {k: os.path.join(OUT, v) for k, v in FOLDERS.items()}
+    for d in dirs.values():
+        os.makedirs(d, exist_ok=True)
     suffix = "" if out["status"] == "ready" else "_NEEDS_REVIEW"
     files = {}
     if out.get("tex"):
-        files["tex"] = os.path.join(d, stem + suffix + ".tex")
+        files["tex"] = os.path.join(dirs["tex"], stem + suffix + ".tex")
         with open(files["tex"], "w", encoding="utf-8") as f:
             f.write(out["tex"])
     if out.get("pdf"):
-        files["pdf"] = os.path.join(d, stem + ".pdf")
+        files["pdf"] = os.path.join(dirs["pdf"], stem + ".pdf")
         with open(files["pdf"], "wb") as f:
             f.write(out["pdf"])
-    files["jd"] = os.path.join(d, stem + ".md")
+    files["jd"] = os.path.join(dirs["jd"], stem + ".md")
     with open(files["jd"], "w", encoding="utf-8") as f:
         f.write(jd.rstrip() + "\n" + (fit_section(out["spec"]) if out.get("spec") else ""))
     return {k: os.path.relpath(v, OUT) for k, v in files.items()}
