@@ -52,8 +52,8 @@ MAX_JOBS_PER_RUN = 40         # safety net only; normally every starred job is d
 MAX_ATTEMPTS = 2              # first try + one retry with the exact check failure
 CLAUDE_PARALLEL = 2           # Claude calls at the same time (Overleaf compiles stay one at a time)
 TG_SERVICE = "job-listener-telegram"   # Keychain item holding the bot token (stored by Purna himself)
-LIMIT_RE = re.compile(r"usage limit|rate.?limit|limit reached|limit will reset|too many requests|overloaded|quota",
-                      re.I)
+LIMIT_RE = re.compile(r"usage limit|rate.?limit|limit reached|limit will reset|too many requests|overloaded|quota"
+                      r"|hit your .{0,20}limit|\b\d+-hour limit|weekly limit|limit .{0,10}resets", re.I)
 
 sys.path.insert(0, HERE)
 
