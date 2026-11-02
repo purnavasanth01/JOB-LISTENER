@@ -283,10 +283,18 @@ def list_microsoft(spec, st, company):
             url = "https://apply.careers.microsoft.com" + url
         locs = p.get("standardizedLocations") or p.get("locations") or [p.get("location")]
         out.append(_job("ms:%s" % pid, company, p.get("name"), [str(l) for l in locs if l], url,
-                        posted=p.get("postedTs")))
+                        posted=p.get("postedTs"), detail=("pcsx", pid)))
     if not out and not data.get("positions"):
         raise ValueError("unexpected Microsoft response shape: %s" % list(d.keys())[:6])
     return out
+
+
+def detail_pcsx(pid):
+    # search results carry no description; position_details does (one call per NEW job only)
+    d = http.get_json("https://apply.careers.microsoft.com/api/pcsx/position_details?position_id=%s"
+                      "&domain=microsoft.com&hl=en" % pid, retries=0)
+    p = d.get("data") or d
+    return clean_text(p.get("jobDescription")), p.get("standardizedLocations") or p.get("locations")
 
 
 def list_google(spec, st, company):
@@ -523,6 +531,8 @@ def fetch_detail(job):
             return detail_orc(d[1], d[2], d[3], d[4])
         if kind == "eightfold":
             return detail_eightfold(d[1], d[2], d[3])
+        if kind == "pcsx":
+            return detail_pcsx(d[1])
         if kind == "html":
             return detail_html(d[1]), None
     if job.get("aggregator"):
