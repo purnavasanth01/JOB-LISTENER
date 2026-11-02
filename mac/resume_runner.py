@@ -220,10 +220,13 @@ the \resumeItem lines, the skills \item lines and the optional Airkrit block in 
 - airkrit: null, or exactly the two Part 6 bullets (AK_PY or AK_PY_ACT, AK_XL; AK_XL first when Excel/BI is the hard
   requirement). Decide per Part 6: YES only for data analyst/scientist/engineer/BI/data-governance roles AND only if
   the page still fits (then use about 9 other bullets, one of them 1-line).
-- skills: 4 lines (5 only if bullets were cut), each [label, items] in LaTeX (use \& for &). FILL every line:
-  first the skills the JD requires (most important first), then the next most relevant TRUE skills (Part 9) until
-  the line is full. A printed line holds ~103-113 characters (label + items, as printed: "\&" counts as 1), so aim
-  for 100-106 and never more than ~108 (a wrapped line fails). Never list a skill twice (e.g. Python on two lines). Company cloud rule, never-claim list, avoid "(" or
+- skills: 4 lines (5 only if bullets were cut), each [label, items] in LaTeX (use \& for &). PURNA'S RULE
+  (2026-11-02, his explicit decision, overrides the Part 9 true-skills / never-claim lists FOR THE SKILLS LINES
+  ONLY): list EVERY technical skill the JD names (languages, frameworks, tools, platforms; required first, then
+  nice-to-have), using the JD's exact wording, whether or not it is in Part 9. Not skills: degrees, clearances,
+  soft skills, years of experience. Then fill each line to the margin with the next most relevant Part 9 skills.
+  If the JD's skills don't all fit, keep the required ones. Bullets and the title must still state only true facts. A printed line holds ~103-113 characters (label + items, as printed: "\&" counts as 1), so aim
+  for 100-106 and never more than ~108 (a wrapped line fails). Never list a skill twice (e.g. Python on two lines). Company cloud rule, avoid "(" or
   "/" on the first skills line when the page is full (0.56pt trap).
 - Plan the page with the Part 7 arithmetic: MAIN (12 two-line bullets + 4 one-line skills, no Airkrit) is exactly
   full (742.73pt). The page must be FILLED (730-742.73pt), never over.
@@ -231,7 +234,8 @@ the \resumeItem lines, the skills \item lines and the optional Airkrit block in 
 - fit: what_the_job_is (3-5 plain lines), meets (requirements truly satisfied, with evidence), gaps (missing,
   including never-claim items the JD asks for), angle (which true experiences to lead with), rating (STRONG,
   MEDIUM-STRONG, MEDIUM, MEDIUM-WEAK, WEAK or DROP recommended) and reason (one line).
-- notes: anything Purna must do before submitting (duplicate IDs, eligibility to confirm, documents, deadlines,
+- notes: start with "Listed from the JD (prepare basics): ..." naming every skills-line item that is NOT in Part 9
+  (none -> omit). Then anything Purna must do before submitting (duplicate IDs, eligibility to confirm, documents, deadlines,
   Power BI/AWS reminders).
 - key_note: the ONE thing Purna must know before applying, plain text, at most 12 words (e.g. "Apply once:
   duplicate of the Workday posting JR105180." or "Confirm Power BI use before submitting."). Shown in his sheet;

@@ -106,7 +106,8 @@ def check(rt, main_tex, tex, pdf_bytes, log, ref, bank=None):
         problems += ["stray gap %.1fpt (normal %.1f) before: %s" % (g, normal, t) for g, t in gaps if g > normal + 4]
     claimed = []
     changed = [c.replace("\\#", "#").replace("\\%", "%") for c in
-               re.findall(r"^\s*(?:\\resumeItem\{.*\}|\\item \\textbf\{.*|\\small \\textit\{.*)$", tex, re.M)]
+               re.findall(r"^\s*(?:\\resumeItem\{.*\}|\\small \\textit\{.*)$", tex, re.M)]
+    # skills lines are exempt: Purna's rule (2026-11-02) lists every skill the JD names; bullets/title stay true
     for term in NEVER_CLAIM:
         pat = r"(?<![A-Za-z])" + re.escape(term) + r"(?![A-Za-z])"
         if any(re.search(pat, c) for c in changed):
