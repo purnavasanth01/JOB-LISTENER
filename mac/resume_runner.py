@@ -10,7 +10,7 @@ launchd runs this at login, after wake, and every 5 minutes while awake. For eac
   4. compile on Overleaf, measure the page (1 page, MAIN's margins, bottom 730-742.73pt, no wraps/orphans,
      diff vs MAIN limited to title/bullets/skills/Airkrit, never-claim list)
   5. one retry with the exact failure if a check fails
-  6. save RESUMES_2/PDF RESUMES/<Stem>.pdf, LATEX/<Stem>.tex, JOB DESCRIPTIONS/<Stem>.md; update TO_APPLY.html/csv
+  6. save RESUMES_2/PDF RESUMES/<Stem>.pdf, LATEX/<Stem>.tex, JOB DESCRIPTIONS/<Stem>.md; update TO_APPLY.xlsx (Target / Non-target tabs)
 
   mac/.venv/bin/python mac/resume_runner.py                 normal run (what launchd does)
   mac/.venv/bin/python mac/resume_runner.py --job <hid>     force one starred job (even if done before)
@@ -262,54 +262,104 @@ def save_outputs(job, jd, out, stem):
 
 # ---------------------------------------------------------------- table
 
-TABLE_FIELDS = ["date", "status", "applied", "rank", "company", "title", "fit", "apply_link", "pdf", "tex", "jd",
-                "notes", "hid"]
+COLUMNS = [("applied", "Applied", 9), ("status", "Status", 16), ("rank", "Rank", 6), ("company", "Company", 22),
+           ("title", "Title", 44), ("location", "Location", 30), ("sponsorship", "Sponsorship line", 60),
+           ("pay", "Pay", 18), ("fit", "Fit", 15), ("url", "Apply link", 14), ("pdf", "Resume PDF", 14),
+           ("tex", "LaTeX", 10), ("jd", "Job description", 14), ("notes", "Notes", 60), ("date", "Found", 11),
+           ("hid", "id", 11)]
+STATUS_LABEL = {"ready": "📄 ready", "needs you": "⚠️ needs you", "queued": "⏳ making resume"}
+
+
+def jd_fields(jd):
+    """Header bullets the cloud listener wrote into the JD file."""
+    def get(label):
+        m = re.search(r"^- \*\*%s:\*\* (.*)$" % re.escape(label), jd or "", re.M)
+        return m.group(1).strip() if m else ""
+    spons = get("Sponsorship wording")
+    return {"location": get("Location"), "pay": get("Pay"),
+            "sponsorship": spons.strip('"') if spons and spons != "none found" else "none found in posting"}
+
+
+def _previous_applied():
+    """Keep whatever was typed in the Applied column (xlsx edited in Excel, or the csv)."""
+    applied = {}
+    xlsx = os.path.join(OUT, "TO_APPLY.xlsx")
+    if os.path.exists(xlsx):
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(xlsx, read_only=True)
+            for ws in wb.worksheets:
+                rows = list(ws.iter_rows(values_only=True))
+                if not rows:
+                    continue
+                hdr = list(rows[0])
+                if "id" in hdr and "Applied" in hdr:
+                    for r in rows[1:]:
+                        if r[hdr.index("Applied")]:
+                            applied[r[hdr.index("id")]] = str(r[hdr.index("Applied")])
+        except Exception as e:  # noqa: BLE001 - a half-saved file must not stop the run
+            log("could not read TO_APPLY.xlsx applied marks: %s" % e)
+    csv_path = os.path.join(OUT, "TO_APPLY.csv")
+    if os.path.exists(csv_path):
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                if r.get("id") and r.get("Applied") and r["id"] not in applied:
+                    applied[r["id"]] = r["Applied"]
+    return applied
 
 
 def write_table(ledger):
-    csv_path = os.path.join(OUT, "TO_APPLY.csv")
-    applied = {}
-    if os.path.exists(csv_path):                       # keep whatever you typed in the "applied" column
-        with open(csv_path, newline="", encoding="utf-8") as f:
-            for r in csv.DictReader(f):
-                if r.get("hid"):
-                    applied[r["hid"]] = r.get("applied", "")
+    """TO_APPLY.xlsx (opens in Numbers/Excel): tabs Target and Non-target. Also TO_APPLY.csv."""
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill
+    applied = _previous_applied()
     rows = []
-    for hid, e in ledger["jobs"].items():
-        if e.get("status") not in ("ready", "needs you"):
+    for hid, e in list(ledger.get("queue", {}).items()) + list(ledger["jobs"].items()):
+        if e.get("status") not in STATUS_LABEL:
             continue
-        rows.append({"date": e.get("date", ""), "status": e["status"], "applied": applied.get(hid, ""),
-                     "rank": e.get("rank") or "", "company": e["company"], "title": e["title"],
-                     "fit": e.get("fit", ""), "apply_link": e.get("url", ""),
-                     "pdf": e.get("files", {}).get("pdf", ""), "tex": e.get("files", {}).get("tex", ""),
-                     "jd": e.get("files", {}).get("jd", ""), "notes": e.get("notes", ""), "hid": hid})
-    rows.sort(key=lambda r: (r["applied"] != "", r["status"] != "ready", r["rank"] == "", str(r["rank"]).zfill(3),
-                             r["date"]), reverse=False)
-    with open(csv_path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=TABLE_FIELDS)
-        w.writeheader()
-        w.writerows(rows)
-    e = html.escape
-    trs = []
-    for r in rows:
-        link = lambda p, label: ('<a href="%s">%s</a>' % (e(p), label)) if p else ""
-        trs.append("<tr class='%s'><td>%s</td><td>%s</td><td>%s</td><td><b>%s</b>%s</td><td>%s</td><td>%s</td>"
-                   "<td><a href='%s' target='_blank'>Apply ↗</a></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
-                   % ("done" if r["applied"] else ("bad" if r["status"] != "ready" else ""), e(r["date"]),
-                      "✅" if r["applied"] else ("📄" if r["status"] == "ready" else "⚠️ needs you"),
-                      e(str(r["rank"])), e(r["company"]), " 🔥" if r["rank"] else "", e(r["title"]), e(r["fit"]),
-                      e(r["apply_link"]), link(r["pdf"], "PDF"), link(r["tex"], ".tex"), link(r["jd"], "JD"),
-                      e(r["notes"])[:300]))
-    page = ("<!doctype html><meta charset='utf-8'><title>To apply</title><style>body{font:14px -apple-system,sans-serif;"
-            "margin:24px}table{border-collapse:collapse;width:100%%}td,th{border:1px solid #ccc;padding:6px;"
-            "vertical-align:top}th{background:#f3f3f3;text-align:left}tr.done{opacity:.45}tr.bad{background:#fff4e5}"
-            "</style><h2>Resumes ready to apply (%d)</h2><p>Mark a job applied by typing anything in the "
-            "<b>applied</b> column of TO_APPLY.csv. Updated %s.</p><table><tr><th>Date</th><th></th><th>Rank</th>"
-            "<th>Company</th><th>Title</th><th>Fit</th><th>Link</th><th>Resume</th><th>LaTeX</th><th>JD</th>"
-            "<th>Notes</th></tr>%s</table>" % (sum(1 for r in rows if r["status"] == "ready" and not r["applied"]),
-                                              dt.datetime.now().strftime("%b %d %H:%M"), "".join(trs)))
-    with open(os.path.join(OUT, "TO_APPLY.html"), "w", encoding="utf-8") as f:
-        f.write(page)
+        files = e.get("files", {})
+        rows.append({"applied": applied.get(hid, ""), "status": STATUS_LABEL[e["status"]], "rank": e.get("rank") or "",
+                     "company": e.get("company", ""), "title": e.get("title", ""), "location": e.get("location", ""),
+                     "sponsorship": e.get("sponsorship", ""), "pay": e.get("pay", ""), "fit": e.get("fit", ""),
+                     "url": e.get("url", ""), "pdf": files.get("pdf", ""), "tex": files.get("tex", ""),
+                     "jd": files.get("jd", ""), "notes": e.get("notes", ""), "date": e.get("date", ""), "hid": hid})
+    order = {"📄 ready": 0, "⏳ making resume": 1, "⚠️ needs you": 2}
+    rows.sort(key=lambda r: (r["applied"] != "", order.get(r["status"], 3), int(r["rank"] or 999), r["date"]))
+    with open(os.path.join(OUT, "TO_APPLY.csv"), "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow([h for _, h, _ in COLUMNS])
+        w.writerows([[r[k] for k, _, _ in COLUMNS] for r in rows])
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    fills = {"📄 ready": "E8F5E9", "⏳ making resume": "FFF8E1", "⚠️ needs you": "FFEBEE"}
+    for name, subset in (("Target", [r for r in rows if r["rank"]]), ("Non-target", [r for r in rows if not r["rank"]])):
+        ws = wb.create_sheet(name)
+        ws.append([h for _, h, _ in COLUMNS])
+        for c in ws[1]:
+            c.font = Font(bold=True)
+        for i, (_, _, width) in enumerate(COLUMNS):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(i + 1)].width = width
+        ws.freeze_panes = "D2"
+        for r in subset:
+            ws.append([r[k] for k, _, _ in COLUMNS])
+            row = ws.max_row
+            for k, label in (("url", "Apply ↗"), ("pdf", "PDF"), ("tex", ".tex"), ("jd", "JD")):
+                col = [c for c, _, _ in COLUMNS].index(k) + 1
+                target = r[k] if k == "url" else (("file://" + os.path.join(OUT, r[k]).replace(" ", "%20")) if r[k] else "")
+                if target:
+                    cell = ws.cell(row=row, column=col, value=label)
+                    cell.hyperlink = target
+                    cell.font = Font(color="0563C1", underline="single")
+            ws.cell(row=row, column=2).fill = PatternFill("solid", fgColor=fills.get(r["status"], "FFFFFF"))
+            if r["applied"]:
+                for c in ws[row]:
+                    c.font = Font(color="9E9E9E", strike=True)
+    tmp = os.path.join(OUT, ".TO_APPLY.tmp.xlsx")
+    wb.save(tmp)
+    os.replace(tmp, os.path.join(OUT, "TO_APPLY.xlsx"))
+    old_html = os.path.join(OUT, "TO_APPLY.html")
+    if os.path.exists(old_html):
+        os.remove(old_html)
 
 
 # ---------------------------------------------------------------- run
@@ -396,9 +446,23 @@ def main():
             todo.append((hid, e, None))
     if not todo:
         log("nothing to do")
+        ledger["queue"] = {}
         write_table(ledger)
         return
-    todo = todo[:MAX_JOBS_PER_RUN]
+    # every starred job shows up in the sheet right away ("making resume"), with location / sponsorship / pay
+    queue = {}
+    for i, (hid, e, jd) in enumerate(todo):
+        if jd is None:
+            try:
+                jd = fetch(STATE_RAW + "jds/%s.md" % hid)
+            except Exception as ex:  # noqa: BLE001 - the job is retried on a later run
+                log("JD file for %s not available yet: %s" % (hid, ex))
+        todo[i] = (hid, e, jd)
+        queue[hid] = dict(jd_fields(jd), status="queued", company=e["company"], title=e["title"], rank=e.get("rank"),
+                          url=e.get("url"), date=dt.date.today().isoformat())
+    ledger["queue"] = queue
+    write_table(ledger)
+    todo = [t for t in todo if t[2]][:MAX_JOBS_PER_RUN]
     log("%d starred job(s) to process" % len(todo))
 
     import overleaf
@@ -423,8 +487,6 @@ def main():
         for hid, e, jd in todo:
             log("job %s: %s — %s" % (hid, e["company"], e["title"]))
             try:
-                if jd is None:
-                    jd = fetch(STATE_RAW + "jds/%s.md" % hid)
                 out = make_resume(ctx, e, jd)
                 stem = stem_for(e["company"], e["title"], e.get("key", hid))
                 files = save_outputs(e, jd, out, stem)
@@ -439,10 +501,10 @@ def main():
                                                      + ([c["build_error"]] if c.get("build_error") else [])
                                                      + (["bottom %s" % c.get("text_bottom")] if c.get("text_bottom") else []))
                                                      [:4], note)
-                ledger["jobs"][hid] = {"status": out["status"], "company": e["company"], "title": e["title"],
-                                       "rank": e.get("rank"), "url": e.get("url"), "date": dt.date.today().isoformat(),
-                                       "fit": fit.get("rating", ""), "files": files, "notes": note[:400],
-                                       "attempts": out["attempts"], "check": out["check"]}
+                ledger["jobs"][hid] = dict(jd_fields(jd), status=out["status"], company=e["company"],
+                                           title=e["title"], rank=e.get("rank"), url=e.get("url"),
+                                           date=dt.date.today().isoformat(), fit=fit.get("rating", ""), files=files,
+                                           notes=note[:400], attempts=out["attempts"], check=out["check"])
                 made.append((out["status"], e["company"]))
                 log("  -> %s %s" % (out["status"], files))
             except Exception as ex:  # noqa: BLE001 - one bad job must not stop the rest
@@ -453,8 +515,9 @@ def main():
                     ledger["jobs"][hid] = {"status": "needs you", "company": e["company"], "title": e["title"],
                                            "rank": e.get("rank"), "url": e.get("url"),
                                            "date": dt.date.today().isoformat(), "notes": "error: %s" % str(ex)[:300]}
+            ledger["queue"].pop(hid, None)
             save_json(LEDGER, ledger)
-    write_table(ledger)
+            write_table(ledger)                         # the sheet updates after every finished resume
     ready = sum(1 for s, _ in made if s == "ready")
     if made:
         notify_mac("Resumes ready: %d" % ready, ", ".join(c for _, c in made)[:120] +

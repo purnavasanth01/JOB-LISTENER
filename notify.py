@@ -103,33 +103,28 @@ def _button(cq, log, on_button):
     if str((msg.get("chat") or {}).get("id")) != str(_tg_chat) or not on_button:
         return
     action, _, hid = (cq.get("data") or "").partition(":")
-    status = on_button(action, hid)
+    res = on_button(action, hid)
     try:   # the tap may be minutes old; Telegram can reject a late answer, which is harmless
-        tg_api("answerCallbackQuery", {"callback_query_id": cq["id"],
-                                       "text": {"starred": "⭐ Starred", "removed": "❌ Removed"}.get(status, "Done")})
+        tg_api("answerCallbackQuery", {"callback_query_id": cq["id"], "text": {"starred": "⭐ Starred",
+               "removed": "❌ Removed"}.get((res or {}).get("status"), "Done")})
     except Exception:  # noqa: BLE001
         pass
     mid = msg.get("message_id")
-    if not mid or status is None:
+    if not mid or not res:
         return
-    if status == "removed":
+    if res.get("delete"):
         try:
             tg_api("deleteMessage", {"chat_id": _tg_chat, "message_id": mid})
-        except Exception:  # noqa: BLE001 - older than 48 h: cannot delete, mark it instead
-            _safe(log, tg_api, "editMessageText", {"chat_id": _tg_chat, "message_id": mid, "parse_mode": "HTML",
-                                                   "text": "❌ <s>%s</s>" % html.escape(msg.get("text", "")[:300])})
-        return
-    url = _first_url(msg)
-    _safe(log, tg_api, "editMessageReplyMarkup", {"chat_id": _tg_chat, "message_id": mid,
-                                                  "reply_markup": {"inline_keyboard": _keyboard(url, hid, True)}})
-
-
-def _first_url(msg):
-    for row in ((msg.get("reply_markup") or {}).get("inline_keyboard") or []):
-        for b in row:
-            if b.get("url"):
-                return b["url"]
-    return None
+            return
+        except Exception:  # noqa: BLE001 - older than 48 h: cannot delete, strike it instead
+            res = {"text": "❌ <s>%s</s>" % html.escape(msg.get("text", "")[:300]), "markup": []}
+    if res.get("text") is not None:
+        _safe(log, tg_api, "editMessageText", {"chat_id": _tg_chat, "message_id": mid, "text": res["text"],
+                                               "parse_mode": "HTML", "disable_web_page_preview": True,
+                                               "reply_markup": {"inline_keyboard": res.get("markup") or []}})
+    elif res.get("markup") is not None:
+        _safe(log, tg_api, "editMessageReplyMarkup", {"chat_id": _tg_chat, "message_id": mid,
+                                                      "reply_markup": {"inline_keyboard": res["markup"]}})
 
 
 def _safe(log, fn, *a):
@@ -140,9 +135,14 @@ def _safe(log, fn, *a):
         return False
 
 
+def _url_ok(url):
+    return bool(url) and url.startswith(("http://", "https://"))
+
+
 def _keyboard(url, hid, starred):
+    """Single-job keyboard (messages sent before grouping)."""
     rows = []
-    if url and url.startswith(("http://", "https://")):
+    if _url_ok(url):
         rows.append([{"text": "🔗 Apply", "url": url}])
     if hid:
         rows.append([{"text": "⭐ Starred ✓" if starred else "⭐ Star", "callback_data": "s:" + hid},
@@ -150,51 +150,84 @@ def _keyboard(url, hid, starred):
     return rows
 
 
-def _tg_job(a):
-    """Target companies get the loud format; everything else stays plain."""
+GROUP_SIZE = 10
+TARGET_HEADER = "🔥🔥 <b>TARGET COMPANIES · H-1B SPONSORS</b> 🔥🔥\n<i>auto-starred: resumes are made unless you tap ❌</i>"
+OTHER_HEADER = "🔔 <b>New internships</b>\n<i>tap ⭐ for a resume</i>"
+
+
+def _job_block(a, n):
     e = html.escape
     loc = e((a.get("location") or "?")[:80]) + (" (+%d more)" % (a["count"] - 1) if a.get("count", 1) > 1 else "")
     listener = e(a.get("listener") or a.get("layer") or "")
-    line = ("💬 <i>\"%s\"</i>" % e(a["line"])) if a.get("line") else ""
-    tags = "\n".join(e(t) for t in a.get("tags") or [])
     if a.get("target"):
-        parts = ["🔥🔥 <b>TARGET #%s · H-1B SPONSOR</b> 🔥🔥" % a.get("rank"),
-                 "🏢 <b>%s</b>" % e(a["company"].upper()),
-                 "💼 <b>%s</b>" % e(a["title"]),
-                 "📍 %s" % loc,
-                 "📡 %s" % listener]
+        lines = ["<b>%d. 🏢 %s</b> · #%s" % (n, e(a["company"].upper()), a.get("rank")),
+                 "💼 <b>%s</b>" % e(a["title"])]
     else:
-        parts = ["<b>%s</b> — %s" % (e(a["company"]), e(a["title"])),
-                 "📍 %s · 📡 %s" % (loc, listener)]
-    if line:
-        parts.append(line)
-    if tags:
-        parts.append(tags)
-    if a.get("target"):
-        parts.append("━━━━━━━━━━━━━━━")
-    return "\n".join(parts)[:TG_MAX]
+        lines = ["<b>%d. %s</b> — %s" % (n, e(a["company"]), e(a["title"]))]
+    lines.append("📍 %s · 📡 %s" % (loc, listener))
+    if a.get("line"):
+        lines.append("💬 <i>\"%s\"</i>" % e(a["line"]))
+    lines += [e(t) for t in a.get("tags") or []]
+    return "\n".join(lines)
 
 
-TG_INDIVIDUAL_MAX = 30   # more than this in one run: the rest go into one digest message
+def group_text(header, items):
+    """items: [(hid, entry)] with entry keys idx, block, status, company, title."""
+    parts = [header]
+    for _, x in items:
+        if x.get("status") == "removed":
+            parts.append("<s>%d. %s — %s</s> ❌" % (x["idx"], html.escape(x.get("company", "")),
+                                                    html.escape(x.get("title", ""))))
+        else:
+            parts.append(x["block"])
+    return "\n\n".join(parts)[:4090]
+
+
+def group_markup(items):
+    rows = []
+    for hid, x in items:
+        if x.get("status") == "removed" or not hid:
+            continue
+        n, row = x["idx"], []
+        if _url_ok(x.get("url")):
+            row.append({"text": "🔗 %d" % n, "url": x["url"]})
+        row.append({"text": ("⭐ %d ✓" if x.get("status") == "starred" else "⭐ %d") % n, "callback_data": "s:" + hid})
+        row.append({"text": "❌ %d" % n, "callback_data": "x:" + hid})
+        rows.append(row)
+    return rows
 
 
 def telegram_jobs(alerts):
-    """One message per job with 🔗 Apply / ⭐ Star / ❌ Remove; sets a["msg_id"]."""
+    """Up to 10 jobs per message (targets in their own loud messages), one 🔗/⭐/❌ row per job.
+    Sets msg_id / idx / block / header on each alert so taps can re-render the message later."""
     if not _tg_chat:
         return False
-    for i, a in enumerate(alerts[:TG_INDIVIDUAL_MAX]):
-        if i:
-            time.sleep(1.05)       # Telegram allows ~1 message/second per chat
-        a["msg_id"] = tg_send(_tg_job(a), markup=_keyboard(a.get("url"), a.get("hid"), a.get("target")))
-    rest = alerts[TG_INDIVIDUAL_MAX:]
-    if rest:
-        time.sleep(1.05)
-        lines = ["📦 <b>%d more new internships</b> (targets are auto-starred)" % len(rest)]
-        for a in rest:
-            lines.append("• <b>%s</b> — <a href=\"%s\">%s</a>" % (html.escape(a["company"]),
-                                                                html.escape(a.get("url") or "", quote=True),
-                                                                html.escape(a["title"])))
-        tg_send("\n".join(lines)[:TG_MAX])
+    sent = 0
+    for loud, subset in ((True, [a for a in alerts if a.get("target")]), (False, [a for a in alerts if not a.get("target")])):
+        chunks, cur, size = [], [], 0
+        for a in subset:                       # max 10 per message, and stay under Telegram's 4096 characters
+            blk = len(_job_block(a, 10)) + 2
+            if cur and (len(cur) >= GROUP_SIZE or size + blk > TG_MAX - 200):
+                chunks.append(cur)
+                cur, size = [], 0
+            cur.append(a)
+            size += blk
+        if cur:
+            chunks.append(cur)
+        for ci, chunk in enumerate(chunks):
+            header = (TARGET_HEADER if loud else OTHER_HEADER) + (" (%d/%d)" % (ci + 1, len(chunks)) if len(chunks) > 1 else "")
+            items = []
+            for n, a in enumerate(chunk, 1):
+                a["idx"], a["block"], a["header"] = n, _job_block(a, n), header
+                items.append((a.get("hid"), {"idx": n, "block": a["block"], "url": a.get("url"),
+                                             "status": "starred" if a.get("target") else "new",
+                                             "company": a["company"], "title": a["title"]}))
+            if sent:
+                time.sleep(1.05)               # Telegram allows ~1 message/second per chat
+            mid = tg_send(group_text(header, items), markup=group_markup(items))
+            sent += 1
+            for a in chunk:
+                a["msg_id"] = mid
     return True
 
 

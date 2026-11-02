@@ -557,7 +557,8 @@ class Run:
                     d.get("runs", 0), starred, len(self.st.seen)))
 
     def on_button(self, action, hid):
-        """⭐ = interested (one-way: never un-stars). ❌ = remove. Returns the new status or None."""
+        """⭐ = interested (one-way: never un-stars). ❌ = remove.
+        Returns {"status", and how to redraw the message: "text"+"markup" | "markup" | "delete"} or None."""
         e = self.st.stars.get(hid)
         if not e:
             return None
@@ -567,7 +568,17 @@ class Run:
             if e.get("status") != "starred":
                 e["status"], e["starred"] = "starred", self.now_s
         self.log("button %s on %s (%s — %s) -> %s" % (action, hid, e["company"], e["title"][:40], e["status"]))
-        return e["status"]
+        mid = e.get("msg_id")
+        group = sorted(((h, x) for h, x in self.st.stars.items() if mid and x.get("msg_id") == mid and "block" in x),
+                       key=lambda hx: hx[1]["idx"])
+        if not group:                                   # message from before grouping: one job per message
+            if e["status"] == "removed":
+                return {"status": e["status"], "delete": True}
+            return {"status": e["status"], "markup": notify._keyboard(e.get("url"), hid, True)}
+        if all(x.get("status") == "removed" for _, x in group):
+            return {"status": e["status"], "delete": True}
+        return {"status": e["status"], "text": notify.group_text(e["header"], group),
+                "markup": notify.group_markup(group)}
 
     def prune_stars(self):
         cutoff = iso(self.now - timedelta(days=STAR_KEEP_DAYS))
@@ -595,7 +606,7 @@ class Run:
             self.log("sent %d alerts" % len(batch))
             for a in batch:
                 if a.get("msg_id") and a.get("hid") in self.st.stars:
-                    self.st.stars[a["hid"]]["msg_id"] = a["msg_id"]
+                    self.st.stars[a["hid"]].update({k: a[k] for k in ("msg_id", "idx", "block", "header") if k in a})
             self.st.unsent = []
         else:
             self.log("alert delivery FAILED; will retry next run")
