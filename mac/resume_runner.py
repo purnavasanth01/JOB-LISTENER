@@ -184,7 +184,7 @@ def stem_for(company, title, key):
 
 SPEC_SCHEMA = {
     "type": "object", "additionalProperties": False,
-    "required": ["lane", "title", "tamu", "vz", "pep", "cal", "airkrit", "skills", "fit", "new_wordings", "notes"],
+    "required": ["lane", "title", "tamu", "vz", "pep", "cal", "airkrit", "skills", "fit", "new_wordings", "notes", "key_note"],
     "properties": {
         "lane": {"type": "string"},
         "title": {"type": "string"},
@@ -201,6 +201,7 @@ SPEC_SCHEMA = {
                                ("what_the_job_is", "meets", "gaps", "angle", "rating", "reason")}},
         "new_wordings": {"type": "array", "items": {"type": "string"}},
         "notes": {"type": "string"},
+        "key_note": {"type": "string"},
     },
 }
 
@@ -230,6 +231,9 @@ the \resumeItem lines, the skills \item lines and the optional Airkrit block in 
   MEDIUM-STRONG, MEDIUM, MEDIUM-WEAK, WEAK or DROP recommended) and reason (one line).
 - notes: anything Purna must do before submitting (duplicate IDs, eligibility to confirm, documents, deadlines,
   Power BI/AWS reminders).
+- key_note: the ONE thing Purna must know before applying, plain text, at most 12 words (e.g. "Apply once:
+  duplicate of the Workday posting JR105180." or "Confirm Power BI use before submitting."). Shown in his sheet;
+  the full notes stay in the JD file.
 """
 
 
@@ -375,10 +379,75 @@ def save_outputs(job, jd, out, stem):
 # ---------------------------------------------------------------- table
 
 COLUMNS = [("applied", "Applied", 9), ("status", "Status", 16), ("rank", "Rank", 6), ("company", "Company", 22),
-           ("title", "Title", 44), ("location", "Location", 30), ("sponsorship", "Sponsorship line", 60),
-           ("pay", "Pay", 18), ("fit", "Fit", 15), ("url", "Apply link", 14), ("pdf", "Resume PDF", 14),
-           ("tex", "LaTeX", 10), ("jd", "Job description", 14), ("notes", "Notes", 60), ("date", "Found", 11),
+           ("title", "Title (apply link)", 44), ("location", "Location", 24), ("sponsorship", "Sponsorship line", 60),
+           ("pay", "Pay", 18), ("fit", "Fit", 15), ("pdf", "Resume PDF", 11), ("tex", "LaTeX", 8),
+           ("jd", "Job description", 14), ("notes", "Notes", 45), ("mine", "My notes", 40), ("date", "Found", 11),
            ("hid", "id", 11)]
+KEEP_COLUMNS = {"applied": "Applied", "mine": "My notes"}      # typed by Purna: survive every rebuild
+STATES = {"alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA", "colorado": "CO",
+          "connecticut": "CT", "delaware": "DE", "district of columbia": "DC", "florida": "FL", "georgia": "GA",
+          "hawaii": "HI", "idaho": "ID", "illinois": "IL", "indiana": "IN", "iowa": "IA", "kansas": "KS",
+          "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD", "massachusetts": "MA",
+          "michigan": "MI", "minnesota": "MN", "mississippi": "MS", "missouri": "MO", "montana": "MT",
+          "nebraska": "NE", "nevada": "NV", "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM",
+          "new york": "NY", "north carolina": "NC", "north dakota": "ND", "ohio": "OH", "oklahoma": "OK",
+          "oregon": "OR", "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC", "south dakota": "SD",
+          "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT", "virginia": "VA", "washington": "WA",
+          "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY"}
+US_WORDS = {"united states", "united states of america", "usa", "us", "u.s.", "u.s.a."}
+REMOTE_WORDS = {"remote", "telecommuter", "telecommute", "virtual", "work from home", "anywhere"}
+
+
+def short_location(raw):
+    """'Bellevue, Washington; Vancouver, Canada' -> 'Bellevue, WA; Vancouver, Canada'. City kept, rest abbreviated."""
+    if not raw:
+        return ""
+    if re.search(r"canary wharf|churchill place", raw, re.I):
+        raw = re.sub(r"canary wharf[^;]*", "London, UK", raw, flags=re.I)
+    out, seen = [], set()
+    remote = False
+    for part in re.split(r"\s*;\s*", raw):
+        m = re.match(r"^([A-Za-z .]+?)\s+-\s+(.+)$", part)                 # "Florida - Deerfield Beach"
+        if m and m.group(1).strip().lower() in STATES:
+            part = "%s, %s" % (m.group(2), m.group(1))
+        bits = [b.strip() for b in part.split(",") if b.strip()]
+        bits = [b for b in bits if b.lower() not in US_WORDS]
+        words = part.lower().split()
+        if words and words[0] in REMOTE_WORDS:                              # "Telecommuter MA", "Remote"
+            remote = True
+            rest = [STATES.get(w, w.upper() if len(w) == 2 else w.title()) for w in words[1:] if w not in US_WORDS]
+            if rest:
+                out.append("Remote, " + " ".join(rest))
+                remote = False
+            continue
+        bits = [STATES.get(b.lower(), b) if i or len(bits) == 1 else b for i, b in enumerate(bits)]  # city stays
+        if len(bits) > 2:
+            bits = bits[:2]
+        if not bits:
+            continue
+        loc = ", ".join(bits)
+        city = bits[0].lower()
+        if city in seen:
+            continue
+        seen.add(city)
+        out.append(loc)
+    if remote:
+        out.insert(0, "Remote, US")
+    if not out:
+        return "US" if re.search(r"united states|\bus\b|usa", raw, re.I) else raw
+    return "; ".join(out[:4]) + (" +%d more" % (len(out) - 4) if len(out) > 4 else "")
+
+
+def short_note(text, words=12):
+    """One short line for the sheet (the full notes live in the JD file)."""
+    t = re.sub(r"\*\*|`", "", text or "").strip()
+    t = re.sub(r"^\(?\d+[.)]\s*", "", t)                                     # leading "1)" / "1."
+    first = re.split(r"(?<=[.!?])\s|\s\d+[.)]\s|\n", t, maxsplit=1)[0].strip()
+    w = first.split()
+    short = " ".join(w[:words])
+    if len(short) > 90:
+        short = short[:88].rsplit(" ", 1)[0]
+    return short + ("…" if short != first else "")
 STATUS_LABEL = {"ready": "📄 ready", "needs you": "⚠️ needs you", "queued": "⏳ making resume"}
 
 
@@ -392,9 +461,9 @@ def jd_fields(jd):
             "sponsorship": spons.strip('"') if spons and spons != "none found" else "none found in posting"}
 
 
-def _previous_applied():
-    """Keep whatever was typed in the Applied column (xlsx edited in Excel, or the csv)."""
-    applied = {}
+def _previous_typed():
+    """Keep whatever Purna typed in the Applied / My notes columns (xlsx edited in Excel, or the csv)."""
+    typed = {k: {} for k in KEEP_COLUMNS}
     xlsx = os.path.join(OUT, "TO_APPLY.xlsx")
     if os.path.exists(xlsx):
         try:
@@ -405,42 +474,48 @@ def _previous_applied():
                 if not rows:
                     continue
                 hdr = list(rows[0])
-                if "id" in hdr and "Applied" in hdr:
-                    for r in rows[1:]:
-                        if r[hdr.index("Applied")]:
-                            applied[r[hdr.index("id")]] = str(r[hdr.index("Applied")])
+                if "id" not in hdr:
+                    continue
+                for k, label in KEEP_COLUMNS.items():
+                    if label in hdr:
+                        for r in rows[1:]:
+                            if r[hdr.index(label)] not in (None, ""):
+                                typed[k][r[hdr.index("id")]] = str(r[hdr.index(label)])
         except Exception as e:  # noqa: BLE001 - a half-saved file must not stop the run
-            log("could not read TO_APPLY.xlsx applied marks: %s" % e)
+            log("could not read TO_APPLY.xlsx typed columns: %s" % e)
     csv_path = os.path.join(OUT, "TO_APPLY.csv")
     if os.path.exists(csv_path):
         with open(csv_path, newline="", encoding="utf-8") as f:
             for r in csv.DictReader(f):
-                if r.get("id") and r.get("Applied") and r["id"] not in applied:
-                    applied[r["id"]] = r["Applied"]
-    return applied
+                for k, label in KEEP_COLUMNS.items():
+                    if r.get("id") and r.get(label) and r["id"] not in typed[k]:
+                        typed[k][r["id"]] = r[label]
+    return typed
 
 
 def write_table(ledger):
     """TO_APPLY.xlsx (opens in Numbers/Excel): tabs Target and Non-target. Also TO_APPLY.csv."""
     import openpyxl
     from openpyxl.styles import Font, PatternFill
-    applied = _previous_applied()
+    typed = _previous_typed()
     rows = []
     for hid, e in list(ledger.get("queue", {}).items()) + list(ledger["jobs"].items()):
         if e.get("status") not in STATUS_LABEL:
             continue
         files = e.get("files", {})
-        rows.append({"applied": applied.get(hid, ""), "status": STATUS_LABEL[e["status"]], "rank": e.get("rank") or "",
-                     "company": e.get("company", ""), "title": e.get("title", ""), "location": e.get("location", ""),
+        rows.append({"applied": typed["applied"].get(hid, ""), "mine": typed["mine"].get(hid, ""),
+                     "status": STATUS_LABEL[e["status"]], "rank": e.get("rank") or "",
+                     "company": e.get("company", ""), "title": e.get("title", ""),
+                     "location": short_location(e.get("location", "")),
                      "sponsorship": e.get("sponsorship", ""), "pay": e.get("pay", ""), "fit": e.get("fit", ""),
                      "url": e.get("url", ""), "pdf": files.get("pdf", ""), "tex": files.get("tex", ""),
-                     "jd": files.get("jd", ""), "notes": e.get("notes", ""), "date": e.get("date", ""), "hid": hid})
+                     "jd": files.get("jd", ""), "notes": e.get("key_note") or short_note(e.get("notes", "")), "date": e.get("date", ""), "hid": hid})
     order = {"📄 ready": 0, "⏳ making resume": 1, "⚠️ needs you": 2}
     rows.sort(key=lambda r: (r["applied"] != "", order.get(r["status"], 3), int(r["rank"] or 999), r["date"]))
     with open(os.path.join(OUT, "TO_APPLY.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow([h for _, h, _ in COLUMNS])
-        w.writerows([[r[k] for k, _, _ in COLUMNS] for r in rows])
+        w.writerow([h for _, h, _ in COLUMNS] + ["Apply link"])          # csv has no hyperlinks: keep the URL
+        w.writerows([[r[k] for k, _, _ in COLUMNS] + [r["url"]] for r in rows])
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
     fills = {"📄 ready": "E8F5E9", "⏳ making resume": "FFF8E1", "⚠️ needs you": "FFEBEE"}
@@ -455,9 +530,9 @@ def write_table(ledger):
         for r in subset:
             ws.append([r[k] for k, _, _ in COLUMNS])
             row = ws.max_row
-            for k, label in (("url", "Apply ↗"), ("pdf", "PDF"), ("tex", ".tex"), ("jd", "JD")):
+            for k, label in (("title", r["title"]), ("pdf", "PDF"), ("tex", ".tex"), ("jd", "JD")):
                 col = [c for c, _, _ in COLUMNS].index(k) + 1
-                target = r[k] if k == "url" else (("file://" + os.path.join(OUT, r[k]).replace(" ", "%20")) if r[k] else "")
+                target = r["url"] if k == "title" else (("file://" + os.path.join(OUT, r[k]).replace(" ", "%20")) if r[k] else "")
                 if target:
                     cell = ws.cell(row=row, column=col, value=label)
                     cell.hyperlink = target
@@ -598,17 +673,21 @@ def main():
         files = save_outputs(e, jd, out, stem)
         fit = out["spec"]["fit"] if out.get("spec") else {}
         note = out["spec"].get("notes", "") if out.get("spec") else ""
+        key = short_note(out["spec"].get("key_note") or note) if out.get("spec") else ""
         if out["status"] == "ready" and not out["fill_ok"]:
             note = ("page not fully filled (bottom %s pt); " % out["check"].get("text_bottom")) + note
+            key = "Page not fully filled. " + key
         if out["status"] != "ready":
             c = out["check"]
             why = ((c.get("layout_problems") or []) + (c.get("diff_violations") or []) + (c.get("never_claim_hits") or [])
                    + ([c["build_error"]] if c.get("build_error") else [])
                    + (["bottom %s" % c.get("text_bottom")] if c.get("text_bottom") else []))
             note = "check failed: %s; %s" % ("; ".join(str(x) for x in why[:4]), note)
+            key = short_note("Check failed: " + str(why[0]) if why else "Check failed.")
         ledger["jobs"][hid] = dict(jd_fields(jd), status=out["status"], company=e["company"], title=e["title"],
                                    rank=e.get("rank"), url=e.get("url"), date=dt.date.today().isoformat(),
-                                   fit=fit.get("rating", ""), files=files, notes=note[:400], attempts=out["attempts"],
+                                   fit=fit.get("rating", ""), files=files, notes=note[:400], key_note=key,
+                                   attempts=out["attempts"],
                                    check=out["check"])
         made.append((out["status"], e["company"]))
         log("  -> %s %s" % (out["status"], files))
