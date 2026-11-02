@@ -220,9 +220,11 @@ the \resumeItem lines, the skills \item lines and the optional Airkrit block in 
 - airkrit: null, or exactly the two Part 6 bullets (AK_PY or AK_PY_ACT, AK_XL; AK_XL first when Excel/BI is the hard
   requirement). Decide per Part 6: YES only for data analyst/scientist/engineer/BI/data-governance roles AND only if
   the page still fits (then use about 9 other bullets, one of them 1-line).
-- skills: 4 lines (5 only if bullets were cut), each [label, items] in LaTeX (use \& for &). EVERY line must fit on
-  one printed line: keep label+items under ~95 characters. JD keywords first, company cloud rule, never-claim list,
-  avoid "(" or "/" on the first skills line when the page is full (0.56pt trap).
+- skills: 4 lines (5 only if bullets were cut), each [label, items] in LaTeX (use \& for &). FILL every line:
+  first the skills the JD requires (most important first), then the next most relevant TRUE skills (Part 9) until
+  the line is full. A printed line holds ~103-113 characters (label + items, as printed: "\&" counts as 1), so aim
+  for 100-106 and never more than ~108 (a wrapped line fails). Never list a skill twice (e.g. Python on two lines). Company cloud rule, never-claim list, avoid "(" or
+  "/" on the first skills line when the page is full (0.56pt trap).
 - Plan the page with the Part 7 arithmetic: MAIN (12 two-line bullets + 4 one-line skills, no Airkrit) is exactly
   full (742.73pt). The page must be FILLED (730-742.73pt), never over.
 - CalTrack and every other number: use exactly what MAIN.tex says (R\textsuperscript{2} = 0.97, 4.5 kcal MAE).
@@ -246,7 +248,10 @@ def ask_claude(rules, main_tex, jd, previous=None, feedback=None):
                   "\n===== CHECK RESULT (fix exactly these problems; text_bottom must end 730-742.73) =====\n",
                   json.dumps(feedback, indent=1),
                   "\nGuide: one 2-line bullet ~25.9pt, one 1-line bullet ~13.95pt, a wrapped skills line or a title "
-                  "wrap ~12-13pt. Over 742.73 -> cut or shorten; under 730 -> add true bullets from the fact bank."]
+                  "wrap ~12-13pt. Over 742.73 -> cut or shorten; under 730 -> add true bullets from the fact bank. "
+                  "skills_space: a line with more than %dpt empty has room left -> add the next most relevant true "
+                  "skills (about free_chars characters, ~4.9pt each); a line that wraps -> shorten it."
+                  % pdfcheck_full_pt()]
     cmd = [claude_bin(), "-p", "--output-format", "json", "--tools", "", "--no-session-persistence",
            "--json-schema", json.dumps(SPEC_SCHEMA)]
     r = subprocess.run(cmd, input="".join(parts), capture_output=True, text=True, timeout=900)
@@ -297,6 +302,17 @@ def check_spec(ctx, spec):
     return pdfcheck.check(rt, main_tex, tex, pdf, latex_log, ctx["ref"], ctx["bank"]), tex, pdf
 
 
+def pdfcheck_full_pt():
+    import pdfcheck
+    return pdfcheck.SKILLS_FULL_PT
+
+
+def quality(res):
+    """Rank passing attempts: page filled, then skills lines full, then least empty skills space."""
+    return (bool(res.get("FILL_OK")), bool(res.get("SKILLS_FULL")),
+            -sum(x["empty_pt"] for x in res.get("skills_space") or []))
+
+
 def run_jobs(ctx, todo, on_done, on_error):
     """Claude calls run CLAUDE_PARALLEL at a time in threads; building, Overleaf and checks run here (one at a
     time). Each job: attempt 1, and one retry with the exact failure. The best passing attempt is kept.
@@ -337,9 +353,10 @@ def run_jobs(ctx, todo, on_done, on_error):
                     res.get("layout_problems") or res.get("diff_violations") or res.get("never_claim_hits")
                     or res.get("build_error") or res.get("compile_status") or ""))
                 j["last"] = (res, tex, pdf, spec)
-                if res.get("PASS") and (j["best"] is None or res.get("FILL_OK")):
+                if res.get("PASS") and (j["best"] is None or quality(res) >= quality(j["best"][0])):
                     j["best"] = j["last"]
-                if (res.get("PASS") and res.get("FILL_OK")) or j["attempt"] >= MAX_ATTEMPTS:
+                if (res.get("PASS") and res.get("FILL_OK") and res.get("SKILLS_FULL", True)) \
+                        or j["attempt"] >= MAX_ATTEMPTS:
                     res, tex, pdf, spec = j["best"] or j["last"]
                     ok = bool(res.get("PASS"))
                     on_done(hid, j["e"], j["jd"], dict(status="ready" if ok else "needs you", tex=tex,

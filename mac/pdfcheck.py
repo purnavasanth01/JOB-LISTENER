@@ -20,6 +20,10 @@ NEVER_CLAIM = ["GCP", "Google Cloud", "Snowflake", "Databricks", "Spark", "PySpa
                ".NET", "React Native", "Flutter", "Kotlin", "Swift", "ROS", "Salesforce", "97% accuracy"]
 
 
+PT_PER_CHAR = 4.9          # measured on the Nov 2 resumes: a skills line holds ~103-113 printed characters
+SKILLS_FULL_PT = 40        # more empty space than this (~8 characters) = room for one more skill
+
+
 def _lines(pdf_bytes):
     """pdftotext-like lines: dict(x0, y0, x1, y1 [top-left origin], w=[words])."""
     pages = list(extract_pages(io.BytesIO(pdf_bytes), laparams=LAParams(line_margin=0.2, char_margin=2.0)))
@@ -79,10 +83,14 @@ def check(rt, main_tex, tex, pdf_bytes, log, ref, bank=None):
             groups.append([None, []])
     if len(head) > 3:
         problems.append("title wraps to 2 lines (keep it ~105 characters)")
-    nb = 0
+    nb, skills_spare = 0, []
     for s, ls in groups:
         if s == "Technical Skills" and len(ls) > 1:
             problems.append("skills line wraps: " + " ".join(ls[1]["w"])[:60])
+        if s == "Technical Skills" and ls:            # empty space at the end of each skills line
+            spare = round(ref["right"] - ls[0]["x1"], 1)
+            skills_spare.append(dict(line=" ".join(ls[0]["w"]).lstrip("• ")[:40], empty_pt=spare,
+                                     free_chars=max(0, int(spare / PT_PER_CHAR))))
         if not ls or s not in ("Experience", "Projects"):
             continue
         nb += 1
@@ -116,10 +124,11 @@ def check(rt, main_tex, tex, pdf_bytes, log, ref, bank=None):
                left_shift=round(m["left"] - ref["left"], 2), top_shift=round(m["top"] - ref["top"], 2),
                right_over=round(m["right"] - ref["right"], 2), latex_errors=len(errs), unexpected_errors=extra,
                overfull_pt=overfull, bullets=nb, layout_problems=problems, diff_violations=bad_diff,
-               never_claim_hits=claimed, bullets_not_in_existing_files=new)
+               never_claim_hits=claimed, bullets_not_in_existing_files=new, skills_space=skills_spare)
     res["PASS"] = (m["pages"] == 1 and bottom <= rt.MAIN_BOTTOM + 0.01 and abs(res["left_shift"]) < 0.05
                    and abs(res["top_shift"]) < 0.1 and res["right_over"] <= 0.01 and not extra
                    and len(errs) == len(known) and not problems and not bad_diff
                    and not claimed and all(o <= 0.6 for o in overfull))
     res["FILL_OK"] = bottom >= 730
+    res["SKILLS_FULL"] = all(x["empty_pt"] <= SKILLS_FULL_PT for x in skills_spare)
     return res
