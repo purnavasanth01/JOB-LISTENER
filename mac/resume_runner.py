@@ -102,8 +102,14 @@ def state_file(name):
 # ---------------------------------------------------------------- problem alerts (Mac + Telegram)
 
 def notify_telegram(text):
-    token = subprocess.run(["security", "find-generic-password", "-s", TG_SERVICE, "-w"], capture_output=True,
-                           text=True).stdout.strip().replace(" ", "")
+    raw = subprocess.run(["security", "find-generic-password", "-s", TG_SERVICE, "-w"], capture_output=True,
+                         text=True).stdout.strip()
+    if raw and re.fullmatch(r"[0-9a-fA-F]+", raw) and len(raw) % 2 == 0:    # Keychain hex-encodes odd pastes
+        try:
+            raw = bytes.fromhex(raw).decode("utf-8", "replace")
+        except ValueError:
+            pass
+    token = raw.split("\x1b")[0].replace(" ", "").strip()                   # drop paste junk: spaces, arrow keys
     if not token:
         return False
     try:
