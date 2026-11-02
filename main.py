@@ -24,6 +24,7 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlparse
 
 import notify
 import rules
@@ -32,7 +33,8 @@ import sources
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OWN_TYPES = {"amazon", "google", "microsoft", "eightfold", "orc", "phenom"}          # Listener 1
 L3_SPECS = [{"type": "simplify"}, {"type": "vansh"}, {"type": "jobright"}]          # Listener 3
-DETAIL_BUDGET = 80          # description fetches per run; the rest wait for the next run
+DETAIL_BUDGET = 150         # description fetches per run; the rest wait for the next run
+DETAIL_LANES = 8            # websites read in parallel; each website still gets one request at a time
 RUN_BUDGET = 200            # seconds; after this, remaining descriptions wait for the next run
 BROKEN_AFTER = 3600         # alert when a source has failed for 1 hour...
 BROKEN_AFTER_SLOW = 86400   # ...or 1 day for naturally flaky sources (Microsoft 429s, Google HTML)
@@ -426,25 +428,28 @@ class Run:
         since = iso(self.now - timedelta(days=DUP_WINDOW_DAYS))
         # targets first (by rank), then everything else
         candidates.sort(key=lambda j: ((j.get("target") or {}).get("rank", 999), j["layer"]))
-        for j in candidates:
-            if j["key"] in self.st.seen:
+        ready = []
+        for j in candidates:                              # 1) cheap title / list checks
+            if j["key"] in self.st.seen or any(r[0]["key"] == j["key"] for r in ready):
                 continue
             role, reason = self.prefilter(j, allow_vague=True)
             if reason:
                 self.drop(j, reason)
                 continue
+            ready.append((j, role))
+        fetched = self.fetch_descriptions([j for j, _ in ready])   # 2) descriptions, in parallel per website
+        for j, role in ready:                             # 3) the same checks as before, one job at a time
             desc, locs = j.get("desc"), None
             if desc is None and (j.get("detail") or j.get("aggregator")):
-                if self.details_used >= DETAIL_BUDGET or time.time() - self.t0 > RUN_BUDGET:
+                got = fetched.get(j["key"])
+                if got is None:                           # over budget / out of time: next run
                     self.defer(j)
                     continue
-                try:
-                    self.details_used += 1
-                    desc, locs = sources.fetch_detail(j)
-                except Exception as e:  # noqa: BLE001
+                desc, locs, err = got
+                if err:
                     fails = self.st.meta.setdefault("detail_fails", {})
                     fails[j["key"]] = fails.get(j["key"], 0) + 1
-                    self.log("description failed (%d) %s: %s" % (fails[j["key"]], j["key"], e))
+                    self.log("description failed (%d) %s: %s" % (fails[j["key"]], j["key"], err))
                     if fails[j["key"]] < 3:
                         self.defer(j)
                         continue
@@ -503,6 +508,43 @@ class Run:
             self.rows["alerts.csv"].append(row)
             if j.get("l3_tag") == "MISSED by L1/L2":
                 self.rows["missed.csv"].append(row)
+
+    @staticmethod
+    def _site(j):
+        d = j.get("detail")
+        if d and d[0] in ("greenhouse", "smartrecruiters"):
+            return d[0]
+        if d and d[0] in ("orc", "eightfold"):
+            return d[1]
+        url = d[1] if d and d[0] in ("workday", "html") else (j.get("url") or "")
+        return urlparse(url).netloc or "other"
+
+    def fetch_descriptions(self, jobs):
+        """-> {key: (desc, locs, error)} for jobs that need a description. Websites run in parallel, but each
+        website's jobs go one after another (never more than one request at a time to the same site)."""
+        need = [j for j in jobs if j.get("desc") is None and (j.get("detail") or j.get("aggregator"))]
+        need = need[:DETAIL_BUDGET]
+        lanes = {}
+        for j in need:
+            lanes.setdefault(self._site(j), []).append(j)
+        deadline = self.t0 + RUN_BUDGET
+        out = {}
+
+        def lane(js):
+            for j in js:
+                if time.time() > deadline:
+                    return
+                try:
+                    desc, locs = sources.fetch_detail(j)
+                    out[j["key"]] = (desc, locs, None)
+                except Exception as e:  # noqa: BLE001
+                    out[j["key"]] = (None, None, e)
+                time.sleep(sources.PAUSE)
+        if lanes:
+            with ThreadPoolExecutor(max_workers=DETAIL_LANES) as ex:
+                list(ex.map(lane, lanes.values()))
+        self.details_used += len(out)
+        return out
 
     def render_jd(self, j, a, desc):
         """The script-made part of the JD file (Step 4): header bullets + verbatim description + ATS keywords.

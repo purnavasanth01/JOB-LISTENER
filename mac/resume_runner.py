@@ -47,8 +47,13 @@ STATE_RAW = "https://raw.githubusercontent.com/purnavasanth01/JOB-LISTENER/state
 SUPPORT = os.path.join(HOME, "Library", "Application Support", "job-listener")
 LEDGER = os.path.join(SUPPORT, "resume_runner.json")
 LOCK = os.path.join(SUPPORT, "resume_runner.lock")
-MAX_JOBS_PER_RUN = 6          # limits how much Claude usage one run can spend
+STATE_API = "https://api.github.com/repos/purnavasanth01/JOB-LISTENER/contents/%s?ref=state"   # no CDN cache
+MAX_JOBS_PER_RUN = 40         # safety net only; normally every starred job is done in one run
 MAX_ATTEMPTS = 2              # first try + one retry with the exact check failure
+CLAUDE_PARALLEL = 2           # Claude calls at the same time (Overleaf compiles stay one at a time)
+TG_SERVICE = "job-listener-telegram"   # Keychain item holding the bot token (stored by Purna himself)
+LIMIT_RE = re.compile(r"usage limit|rate.?limit|limit reached|limit will reset|too many requests|overloaded|quota",
+                      re.I)
 
 sys.path.insert(0, HERE)
 
@@ -77,10 +82,58 @@ def save_json(path, data):
     os.replace(path + ".tmp", path)
 
 
-def fetch(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "job-listener-mac", "Cache-Control": "no-cache"})
+def fetch(url, raw_api=False):
+    h = {"User-Agent": "job-listener-mac", "Cache-Control": "no-cache"}
+    if raw_api:
+        h["Accept"] = "application/vnd.github.raw"
+    req = urllib.request.Request(url, headers=h)
     with urllib.request.urlopen(req, timeout=30) as r:
         return r.read().decode("utf-8")
+
+
+def state_file(name):
+    """Fresh copy from the state branch (API: no 5-minute cache); falls back to the raw CDN."""
+    try:
+        return fetch(STATE_API % name, raw_api=True)
+    except Exception:  # noqa: BLE001 - API rate limit (60/hour) etc.
+        return fetch(STATE_RAW + name)
+
+
+# ---------------------------------------------------------------- problem alerts (Mac + Telegram)
+
+def notify_telegram(text):
+    token = subprocess.run(["security", "find-generic-password", "-s", TG_SERVICE, "-w"], capture_output=True,
+                           text=True).stdout.strip().replace(" ", "")
+    if not token:
+        return False
+    try:
+        chat = json.loads(state_file("meta.json")).get("tg_chat")
+        if not chat:
+            return False
+        req = urllib.request.Request("https://api.telegram.org/bot%s/sendMessage" % token,
+                                     data=json.dumps({"chat_id": chat, "text": text}).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=20):
+            return True
+    except Exception as e:  # noqa: BLE001 - never print the URL: it contains the token
+        log("telegram alert failed: %s" % type(e).__name__)
+        return False
+
+
+def alert_once(ledger, key, title, text):
+    """Mac notification + Telegram message, at most once per day per problem."""
+    today = dt.date.today().isoformat()
+    sent = ledger.setdefault("alerts", {})
+    if sent.get(key) == today:
+        return
+    notify_mac(title, text)
+    notify_telegram("💻 %s\n%s" % (title, text))
+    sent[key] = today
+    save_json(LEDGER, ledger)
+
+
+class UsageLimit(RuntimeError):
+    """Claude usage limit reached: stop for now, the jobs stay queued for a later run."""
 
 
 def resume_tool():
@@ -107,9 +160,18 @@ def camel(s, limit):
 
 
 def stem_for(company, title, key):
-    t = re.sub(r"\((?:[^)]*?)\)|\b(summer|fall|spring|winter)\s*(20)?2\d\b|\b20\d\d\b|[-–—|,].*$", " ", title, flags=re.I)
+    """Company_Role_ReqID, e.g. Stripe_SoftwareEngineerIntern_7123456 (term, year and location parts dropped)."""
+    t = re.sub(r"\([^)]*\)", " ", title)
+    t = re.sub(r"\b(summer|fall|spring|winter|autumn)\s*(20)?2\d\b|\b20\d\d\b", " ", t, flags=re.I)
+    parts = [p.strip() for p in re.split(r"\s[-–—|:]\s|,|\s[-–—]$|^[-–—]\s", t) if re.search(r"[A-Za-z]{2}", p)]
+    role = parts[0] if parts else "Role"
+    if re.fullmatch(r"(?i)\s*(summer\s+)?(intern(ship)?|co-?op)s?\s*", role) and len(parts) > 1:
+        role = parts[1] + " Intern"                     # "Intern - GM OneOps Deploy Engineer"
+    if not re.search(r"intern|co-?op", role, re.I):                 # keep "Intern" when it sits in a later part
+        extra = next((p for p in parts[1:] if re.fullmatch(r"(?i)(summer\s+)?(intern(ship)?|co-?op)s?", p)), None)
+        role += " " + extra if extra else ""
     req = re.sub(r"[^A-Za-z0-9]", "", key.split(":")[-1])[:12]
-    return "%s_%s_%s" % (camel(company, 24) or "Company", camel(t, 40) or "Role", req or "ID")
+    return "%s_%s_%s" % (camel(company, 24) or "Company", camel(role, 40) or "Role", req or "ID")
 
 
 # ---------------------------------------------------------------- Claude
@@ -181,9 +243,11 @@ def ask_claude(rules, main_tex, jd, previous=None, feedback=None):
     try:
         out = json.loads(r.stdout)
     except ValueError:
-        raise RuntimeError("claude -p failed: %s %s" % (r.returncode, (r.stderr or r.stdout)[-400:]))
+        msg = (r.stderr or r.stdout)[-400:]
+        raise (UsageLimit if LIMIT_RE.search(msg) else RuntimeError)("claude -p failed: %s %s" % (r.returncode, msg))
     if out.get("is_error") or not out.get("structured_output"):
-        raise RuntimeError("claude -p returned no spec: %s" % str(out.get("result"))[:400])
+        msg = str(out.get("result"))[:400]
+        raise (UsageLimit if LIMIT_RE.search(msg) else RuntimeError)("claude -p returned no spec: %s" % msg)
     u = out.get("usage") or {}
     log("  claude: %s in (+%s cached) / %s out tokens" % (u.get("input_tokens"), u.get("cache_read_input_tokens", 0)
                                                           + u.get("cache_creation_input_tokens", 0),
@@ -208,32 +272,74 @@ def fit_section(spec):
     return "\n".join(lines) + "\n"
 
 
-def make_resume(ctx, job, jd):
-    """-> dict(status, stem, files, check, spec)"""
-    rt, main_tex, rules, ol, ref, bank = ctx["rt"], ctx["main"], ctx["rules"], ctx["ol"], ctx["ref"], ctx["bank"]
+def check_spec(ctx, spec):
+    """Build from MAIN.tex with resume_tool, compile on Overleaf, check the page. -> (res, tex, pdf)"""
     import pdfcheck
-    spec, res, tex, pdf, prev, feedback = None, None, None, None, None, None
-    for attempt in range(1, MAX_ATTEMPTS + 1):
-        spec = ask_claude(rules, main_tex, jd, prev, feedback)
-        spec_rt = dict(spec, skills=[tuple(x) for x in spec["skills"]], airkrit=spec.get("airkrit") or None)
-        try:
-            tex = rt.build(main_tex, spec_rt)
-        except Exception as e:  # noqa: BLE001
-            res = {"PASS": False, "FILL_OK": False, "build_error": str(e)}
-        else:
-            pdf, latex_log, status = ol.compile_tex(tex, "resume")
-            res = (pdfcheck.check(rt, main_tex, tex, pdf, latex_log, ref, bank) if pdf
-                   else {"PASS": False, "FILL_OK": False, "compile_status": status})
-        log("  attempt %d: %s, bottom %s, problems %s" % (attempt, "PASS" if res.get("PASS") else "FAIL",
-                                                         res.get("text_bottom"), res.get("layout_problems")
-                                                         or res.get("diff_violations") or res.get("never_claim_hits")
-                                                         or res.get("build_error") or ""))
-        if res.get("PASS") and res.get("FILL_OK"):
-            break
-        prev, feedback = spec, {k: v for k, v in res.items() if k != "bullets_not_in_existing_files"}
-    ok = bool(res.get("PASS"))
-    return dict(status="ready" if ok else "needs you", tex=tex, pdf=pdf if ok else None, check=res, spec=spec,
-                attempts=attempt, fill_ok=bool(res.get("FILL_OK")))
+    rt, main_tex = ctx["rt"], ctx["main"]
+    spec_rt = dict(spec, skills=[tuple(x) for x in spec["skills"]], airkrit=spec.get("airkrit") or None)
+    try:
+        tex = rt.build(main_tex, spec_rt)
+    except Exception as e:  # noqa: BLE001
+        return {"PASS": False, "FILL_OK": False, "build_error": str(e)}, None, None
+    pdf, latex_log, status = ctx["ol"].compile_tex(tex, "resume")
+    if not pdf:
+        return {"PASS": False, "FILL_OK": False, "compile_status": status}, tex, None
+    return pdfcheck.check(rt, main_tex, tex, pdf, latex_log, ctx["ref"], ctx["bank"]), tex, pdf
+
+
+def run_jobs(ctx, todo, on_done, on_error):
+    """Claude calls run CLAUDE_PARALLEL at a time in threads; building, Overleaf and checks run here (one at a
+    time). Each job: attempt 1, and one retry with the exact failure. The best passing attempt is kept.
+    -> usage-limit message if Claude's limit was hit (the remaining jobs simply stay queued)."""
+    from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+    jobs = {hid: dict(e=e, jd=jd, attempt=0, prev=None, feedback=None, best=None, last=None)
+            for hid, e, jd in todo}
+    queue, pending, limit = list(jobs), {}, None
+    with ThreadPoolExecutor(max_workers=CLAUDE_PARALLEL) as pool:
+        while queue or pending:
+            while queue and not limit and len(pending) < CLAUDE_PARALLEL:
+                hid = queue.pop(0)
+                j = jobs[hid]
+                j["attempt"] += 1
+                log("job %s: %s — %s (attempt %d)" % (hid, j["e"]["company"], j["e"]["title"], j["attempt"]))
+                pending[pool.submit(ask_claude, ctx["rules"], ctx["main"], j["jd"], j["prev"], j["feedback"])] = hid
+            if not pending:
+                break
+            done, _ = wait(list(pending), return_when=FIRST_COMPLETED)
+            for fut in done:
+                hid = pending.pop(fut)
+                j = jobs[hid]
+                try:
+                    spec = fut.result()
+                except UsageLimit as ex:
+                    limit = str(ex)
+                    continue
+                except Exception as ex:  # noqa: BLE001
+                    on_error(hid, j["e"], ex)
+                    continue
+                try:
+                    res, tex, pdf = check_spec(ctx, spec)
+                except Exception as ex:  # noqa: BLE001 - Overleaf hiccup etc.: retried on a later run
+                    on_error(hid, j["e"], ex)
+                    continue
+                log("  %s attempt %d: %s, bottom %s, problems %s" % (
+                    j["e"]["company"], j["attempt"], "PASS" if res.get("PASS") else "FAIL", res.get("text_bottom"),
+                    res.get("layout_problems") or res.get("diff_violations") or res.get("never_claim_hits")
+                    or res.get("build_error") or res.get("compile_status") or ""))
+                j["last"] = (res, tex, pdf, spec)
+                if res.get("PASS") and (j["best"] is None or res.get("FILL_OK")):
+                    j["best"] = j["last"]
+                if (res.get("PASS") and res.get("FILL_OK")) or j["attempt"] >= MAX_ATTEMPTS:
+                    res, tex, pdf, spec = j["best"] or j["last"]
+                    ok = bool(res.get("PASS"))
+                    on_done(hid, j["e"], j["jd"], dict(status="ready" if ok else "needs you", tex=tex,
+                                                       pdf=pdf if ok else None, check=res, spec=spec,
+                                                       attempts=j["attempt"], fill_ok=bool(res.get("FILL_OK"))))
+                else:
+                    j["prev"] = spec
+                    j["feedback"] = {k: v for k, v in res.items() if k != "bullets_not_in_existing_files"}
+                    queue.insert(0, hid)                 # retry next, while the other call keeps running
+    return limit
 
 
 FOLDERS = {"pdf": "PDF RESUMES", "tex": "LATEX", "jd": "JOB DESCRIPTIONS"}
@@ -396,7 +502,7 @@ class _Session:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--job", help="force this starred job id")
-    ap.add_argument("--jd", help="local JD .md file to process (test)")
+    ap.add_argument("--jd", nargs="+", help="local JD .md file(s) to process (test)")
     ap.add_argument("--headed", action="store_true", help="show the Overleaf browser")
     args = ap.parse_args()
 
@@ -412,27 +518,28 @@ def main():
         return
     with open(MAIN, "rb") as f:
         md5 = hashlib.md5(f.read()).hexdigest()
+    ledger = load_json(LEDGER, {"jobs": {}})
     if md5 != MAIN_MD5:
-        notify_mac("Resume runner stopped", "MAIN.tex changed (md5). Update the runner after checking it.")
+        alert_once(ledger, "main_md5", "Resume runner stopped", "MAIN.tex changed (md5). Resumes paused until the "
+                   "runner is updated for the new MAIN.tex.")
         log("MAIN.tex md5 %s != %s: stopping (rulebook says tell Purna)" % (md5, MAIN_MD5))
         return
-    ledger = load_json(LEDGER, {"jobs": {}})
 
     # ---- which jobs
     todo = []
-    if args.jd:
-        jd = open(args.jd, encoding="utf-8").read()
+    for path in args.jd or []:
+        jd = open(path, encoding="utf-8").read()
         m = re.search(r"^# (.+?) — (.+)$", jd, re.M)
         km = re.search(r"\*\*Job key:\*\* `([^`]+)`", jd)
         um = re.search(r"\*\*Link:\*\* (\S+)", jd)
         rm = re.search(r"TARGET #(\d+)", jd)
-        key = km.group(1) if km else os.path.basename(args.jd)
+        key = km.group(1) if km else os.path.basename(path)
         hid = hashlib.sha1(key.encode()).hexdigest()[:10]
         todo.append((hid, {"company": m.group(1), "title": m.group(2), "key": key,
                            "rank": int(rm.group(1)) if rm else None, "url": um.group(1) if um else ""}, jd))
-    else:
+    if not args.jd:
         try:
-            stars = json.loads(fetch(STATE_RAW + "stars.json"))
+            stars = json.loads(state_file("stars.json"))
         except Exception as e:  # noqa: BLE001
             log("could not read stars.json: %s" % e)
             return
@@ -474,55 +581,69 @@ def main():
     try:
         ol_session = overleaf.Overleaf(headless=not args.headed).__enter__()
     except overleaf.LoginNeeded as ex:
-        today = dt.date.today().isoformat()
-        if ledger.get("login_notified") != today:      # once a day, not every 5 minutes
-            notify_mac("Overleaf login needed", "Double-click 'Overleaf login.command' in JOB-LISTENER/mac")
-            ledger["login_notified"] = today
-            save_json(LEDGER, ledger)
+        alert_once(ledger, "overleaf_login", "Overleaf login needed",
+                   "Resumes are paused. Double-click 'Overleaf login.command' in JOB-LISTENER/mac and solve the "
+                   "image check once.")
         log("Overleaf session expired: %s" % ex)
         return
+
+    def on_done(hid, e, jd, out):
+        stem = stem_for(e["company"], e["title"], e.get("key", hid))
+        files = save_outputs(e, jd, out, stem)
+        fit = out["spec"]["fit"] if out.get("spec") else {}
+        note = out["spec"].get("notes", "") if out.get("spec") else ""
+        if out["status"] == "ready" and not out["fill_ok"]:
+            note = ("page not fully filled (bottom %s pt); " % out["check"].get("text_bottom")) + note
+        if out["status"] != "ready":
+            c = out["check"]
+            why = ((c.get("layout_problems") or []) + (c.get("diff_violations") or []) + (c.get("never_claim_hits") or [])
+                   + ([c["build_error"]] if c.get("build_error") else [])
+                   + (["bottom %s" % c.get("text_bottom")] if c.get("text_bottom") else []))
+            note = "check failed: %s; %s" % ("; ".join(str(x) for x in why[:4]), note)
+        ledger["jobs"][hid] = dict(jd_fields(jd), status=out["status"], company=e["company"], title=e["title"],
+                                   rank=e.get("rank"), url=e.get("url"), date=dt.date.today().isoformat(),
+                                   fit=fit.get("rating", ""), files=files, notes=note[:400], attempts=out["attempts"],
+                                   check=out["check"])
+        made.append((out["status"], e["company"]))
+        log("  -> %s %s" % (out["status"], files))
+        ledger["queue"].pop(hid, None)
+        save_json(LEDGER, ledger)
+        write_table(ledger)                             # the sheet updates after every finished resume
+
+    def on_error(hid, e, ex):
+        log("  ERROR %s: %s" % (hid, ex))
+        errors = ledger.setdefault("errors", {})
+        errors[hid] = errors.get(hid, 0) + 1
+        if errors[hid] >= 3:                            # transient errors retry on later runs, then give up
+            ledger["jobs"][hid] = {"status": "needs you", "company": e["company"], "title": e["title"],
+                                   "rank": e.get("rank"), "url": e.get("url"), "date": dt.date.today().isoformat(),
+                                   "notes": "error: %s" % str(ex)[:300]}
+            ledger["queue"].pop(hid, None)
+        save_json(LEDGER, ledger)
+        write_table(ledger)
+
     with _Session(ol_session) as ol:
         ctx = dict(rt=rt, main=main_tex, rules=rules, ol=ol, bank=bank, ref=reference(ol, rt, main_tex, ledger))
         save_json(LEDGER, ledger)
-        for hid, e, jd in todo:
-            log("job %s: %s — %s" % (hid, e["company"], e["title"]))
-            try:
-                out = make_resume(ctx, e, jd)
-                stem = stem_for(e["company"], e["title"], e.get("key", hid))
-                files = save_outputs(e, jd, out, stem)
-                fit = out["spec"]["fit"] if out.get("spec") else {}
-                note = out["spec"].get("notes", "") if out.get("spec") else ""
-                if out["status"] == "ready" and not out["fill_ok"]:
-                    note = ("page not fully filled (bottom %s pt); " % out["check"].get("text_bottom")) + note
-                if out["status"] != "ready":
-                    c = out["check"]
-                    note = "check failed: %s; %s" % ("; ".join(str(x) for x in (c.get("layout_problems") or [])
-                                                     + (c.get("diff_violations") or []) + (c.get("never_claim_hits") or [])
-                                                     + ([c["build_error"]] if c.get("build_error") else [])
-                                                     + (["bottom %s" % c.get("text_bottom")] if c.get("text_bottom") else []))
-                                                     [:4], note)
-                ledger["jobs"][hid] = dict(jd_fields(jd), status=out["status"], company=e["company"],
-                                           title=e["title"], rank=e.get("rank"), url=e.get("url"),
-                                           date=dt.date.today().isoformat(), fit=fit.get("rating", ""), files=files,
-                                           notes=note[:400], attempts=out["attempts"], check=out["check"])
-                made.append((out["status"], e["company"]))
-                log("  -> %s %s" % (out["status"], files))
-            except Exception as ex:  # noqa: BLE001 - one bad job must not stop the rest
-                log("  ERROR: %s" % ex)
-                errors = ledger.setdefault("errors", {})
-                errors[hid] = errors.get(hid, 0) + 1
-                if errors[hid] >= 3:                       # transient errors retry on later runs, then give up
-                    ledger["jobs"][hid] = {"status": "needs you", "company": e["company"], "title": e["title"],
-                                           "rank": e.get("rank"), "url": e.get("url"),
-                                           "date": dt.date.today().isoformat(), "notes": "error: %s" % str(ex)[:300]}
-            ledger["queue"].pop(hid, None)
-            save_json(LEDGER, ledger)
-            write_table(ledger)                         # the sheet updates after every finished resume
-    ready = sum(1 for s, _ in made if s == "ready")
+        limit = run_jobs(ctx, todo, on_done, on_error)
+    if limit:
+        alert_once(ledger, "claude_limit", "Claude usage limit reached",
+                   "Resumes paused; %d starred job(s) still queued. They continue automatically when the limit "
+                   "resets." % len(ledger.get("queue", {})))
+        log("Claude usage limit: %s" % limit)
+    ready = sum(1 for st, _ in made if st == "ready")
     if made:
-        notify_mac("Resumes ready: %d" % ready, ", ".join(c for _, c in made)[:120] +
-                   ((" · %d need you" % (len(made) - ready)) if len(made) > ready else ""))
+        summary = ", ".join(c for _, c in made)[:150] + ((" · %d need you" % (len(made) - ready))
+                                                          if len(made) > ready else "")
+        notify_mac("Resumes ready: %d" % ready, summary)
+        notify_telegram("📄 Resumes ready: %d — %s\nOpen INTERNSHIP/RESUMES_2/TO_APPLY.xlsx" % (ready, summary))
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as ex:  # noqa: BLE001 - tell Purna instead of failing silently every 5 minutes
+        import traceback
+        traceback.print_exc()
+        alert_once(load_json(LEDGER, {"jobs": {}}), "crash", "Resume runner error", str(ex)[:200])
+        raise
