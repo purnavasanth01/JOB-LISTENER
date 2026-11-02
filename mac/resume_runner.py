@@ -510,17 +510,148 @@ def _previous_typed():
     return typed
 
 
+NUMBERS_FILE = "TO_APPLY.numbers"
+NUMBERS_COLS = [("rank", "Rank", 50), ("title", "Title (apply link)", 330), ("applied", "Applied", 70),
+                ("location", "Location", 170), ("sponsorship", "Sponsorship line", 230), ("fit", "Fit", 120),
+                ("pay", "Pay", 130)]
+NUMBERS_HASH = os.path.join(SUPPORT, "numbers_sheet.md5")
+
+
+def _numbers_doc(path=None):
+    import warnings
+    warnings.filterwarnings("ignore", message="unsupported version")   # newer Numbers versions read/write fine
+    from numbers_parser import Document
+    return Document(path) if path else Document()
+
+
+def _numbers_applied():
+    """What Purna typed in the Applied column of TO_APPLY.numbers -> {url or 'Company — Title': value}.
+    A row present in the file wins even when its Applied cell is empty (he may have cleared it)."""
+    path = os.path.join(OUT, NUMBERS_FILE)
+    marks = {}
+    if not os.path.exists(path):
+        return marks
+    try:
+        doc = _numbers_doc(path)
+        for sheet in doc.sheets:
+            for t in sheet.tables:
+                rows = t.rows()
+                if not rows:
+                    continue
+                hdr = [str(c.value or "") for c in rows[0]]
+                if "Applied" not in hdr or not any(h.startswith("Title") for h in hdr):
+                    continue
+                ti, ai = [i for i, h in enumerate(hdr) if h.startswith("Title")][0], hdr.index("Applied")
+                for r in rows[1:]:
+                    cell = r[ti]
+                    text = str(cell.value or "").strip()
+                    if not text:
+                        continue
+                    m = re.search(r'HYPERLINK\("([^"]+)"', cell.formula or "") if cell.formula else None
+                    links = getattr(cell, "hyperlinks", None) or []
+                    url = m.group(1) if m else (links[0][1] if links else "")
+                    v = r[ai].value
+                    v = "" if v in (None, False) else ("Done" if v is True else str(v).strip())
+                    marks[text] = v
+                    if url:
+                        marks[url] = v
+    except Exception as e:  # noqa: BLE001 - a half-saved file must not stop the run
+        log("could not read %s: %s" % (NUMBERS_FILE, e))
+    return marks
+
+
+def short_sponsorship(text):
+    """Sponsorship sentence -> a few words for the sheet (the full sentence stays in the JD file)."""
+    t = (text or "").strip()
+    if not t or t.startswith("none found"):
+        return "none found"
+    m = re.search(r"track record of offering H1B sponsorships, with (\d+) in (\d{4})", t)
+    if m:
+        return "H-1B history: %s in %s" % (m.group(1), m.group(2))
+    if re.search(r"student visa", t, re.I) and re.search(r"unable|not|cannot|can't", t, re.I):
+        return "❌ No student visas"
+    if re.search(r"not (be )?able to (provide|offer)|not available|unable to|does not sponsor|do not sponsor|cannot "
+                 r"sponsor|will not sponsor|no (visa )?sponsorship|not provide (visa )?sponsorship", t, re.I):
+        return "❌ No sponsorship"
+    if re.search(r"will (provide|offer|sponsor)|accept applications from candidates who require|sponsorship is "
+                 r"available", t, re.I):
+        return "✅ Sponsors" + (" (UK visa)" if re.search(r"\bUK\b", t) else "")
+    if re.search(r"select yes|require .{0,40}sponsor", t, re.I):
+        return "Asks if you need sponsorship"
+    if re.search(r"authori[sz]ed to work", t, re.I):
+        return "US work authorization required"
+    return short_note(t, 8)
+
+
+def _numbers_title(r):
+    return ("%s — %s" % (r["company"], r["title"])).replace('"', "'")
+
+
+def write_numbers(rows):
+    """TO_APPLY.numbers (the file Purna opens): tabs Target / Non-target, 7 columns, title = apply link.
+    Rewritten only when its content changes, so an open copy in Numbers isn't disturbed every 5 minutes."""
+    from numbers_parser import RGB, Style
+    data = [[r["rank"], _numbers_title(r), r["url"], r["applied"], r["location"], r["sponsorship_short"],
+             r["fit_cell"], r["pay"]] for r in rows]
+    digest = hashlib.md5(json.dumps(data, ensure_ascii=False, default=str).encode()).hexdigest()
+    path = os.path.join(OUT, NUMBERS_FILE)
+    stamp = lambda: "%s %s" % (digest, os.path.getmtime(path))       # content + the exact file we wrote
+    if os.path.exists(path) and os.path.exists(NUMBERS_HASH) and open(NUMBERS_HASH).read() == stamp():
+        return                                              # unchanged and not re-saved by Numbers since
+    doc = _numbers_doc()
+    head = Style(bold=True, bg_color=RGB(230, 230, 230))
+    done = Style(font_color=RGB(158, 158, 158), strikethrough=True)
+    for n, (name, subset) in enumerate((("Target", [r for r in rows if r["rank"]]),
+                                        ("Non-target", [r for r in rows if not r["rank"]]))):
+        if n == 0:
+            sheet = doc.sheets[0]
+            sheet.name = name
+        else:
+            doc.add_sheet(name)
+            sheet = doc.sheets[n]
+        t = sheet.tables[0]
+        for c, (_, label, width) in enumerate(NUMBERS_COLS):
+            t.write(0, c, label, style=head)
+            t.col_width(c, width)
+        for i, r in enumerate(subset, 1):
+            # Rank as text: the library stores the number 25 as 25.000000000000004
+            vals = {"rank": str(int(r["rank"])) if r["rank"] else "", "title": _numbers_title(r), "applied": r["applied"],
+                    "location": r["location"], "sponsorship": r["sponsorship_short"], "fit": r["fit_cell"],
+                    "pay": r["pay"]}
+            for c, (k, _, _) in enumerate(NUMBERS_COLS):
+                t.write(i, c, vals[k])
+                if r["applied"]:
+                    t.set_cell_style(i, c, done)
+            if r["url"]:
+                t.cell(i, 1).formula = 'HYPERLINK("%s","%s")' % (r["url"].replace('"', "%22"), vals["title"])
+        if t.num_cols > len(NUMBERS_COLS):                      # new tables start with spare empty columns/rows
+            t.delete_column(num_cols=t.num_cols - len(NUMBERS_COLS), start_col=len(NUMBERS_COLS))
+        if t.num_rows > len(subset) + 1:
+            t.delete_row(num_rows=t.num_rows - len(subset) - 1, start_row=len(subset) + 1)
+    tmp = os.path.join(OUT, ".TO_APPLY.tmp.numbers")
+    doc.save(tmp)
+    os.replace(tmp, path)
+    with open(NUMBERS_HASH, "w") as f:
+        f.write(stamp())
+
+
 def write_table(ledger):
     """TO_APPLY.xlsx (opens in Numbers/Excel): tabs Target and Non-target. Also TO_APPLY.csv."""
     import openpyxl
     from openpyxl.styles import Font, PatternFill
     typed = _previous_typed()
+    marks = _numbers_applied()
     rows = []
     for hid, e in list(ledger.get("queue", {}).items()) + list(ledger["jobs"].items()):
         if e.get("status") not in STATUS_LABEL:
             continue
         files = e.get("files", {})
-        rows.append({"applied": typed["applied"].get(hid, ""), "mine": typed["mine"].get(hid, ""),
+        url, ntitle = e.get("url") or "", _numbers_title({"company": e.get("company", ""), "title": e.get("title", "")})
+        applied = marks[url] if url and url in marks else marks.get(ntitle, typed["applied"].get(hid, ""))
+        spons = e.get("sponsorship", "")
+        rows.append({"applied": applied, "mine": typed["mine"].get(hid, ""),
+                     "sponsorship_short": short_sponsorship(spons),
+                     "fit_cell": (e.get("fit") if e["status"] == "ready" else "") or STATUS_LABEL[e["status"]],
                      "status": STATUS_LABEL[e["status"]], "rank": e.get("rank") or "",
                      "company": e.get("company", ""), "title": e.get("title", ""),
                      "location": short_location(e.get("location", "")),
@@ -558,6 +689,10 @@ def write_table(ledger):
             if r["applied"]:
                 for c in ws[row]:
                     c.font = Font(color="9E9E9E", strike=True)
+    try:
+        write_numbers(rows)
+    except Exception as e:  # noqa: BLE001 - the xlsx backup is still written
+        log("could not write %s: %s" % (NUMBERS_FILE, e))
     tmp = os.path.join(OUT, ".TO_APPLY.tmp.xlsx")
     wb.save(tmp)
     os.replace(tmp, os.path.join(OUT, "TO_APPLY.xlsx"))

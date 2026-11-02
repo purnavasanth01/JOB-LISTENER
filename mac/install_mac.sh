@@ -17,7 +17,7 @@ fi
 if [ ! -x "$DIR/.venv/bin/python" ]; then
   python3 -m venv "$DIR/.venv"
   "$DIR/.venv/bin/pip" install -q --upgrade pip
-  "$DIR/.venv/bin/pip" install -q playwright pdfminer.six openpyxl
+  "$DIR/.venv/bin/pip" install -q playwright pdfminer.six openpyxl numbers-parser
   "$DIR/.venv/bin/python" -m playwright install chromium
 fi
 
