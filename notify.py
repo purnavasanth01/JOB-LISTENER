@@ -19,10 +19,13 @@ TG_MAX = 3800     # Telegram message limit is 4096 characters
 _tg_chat = None   # set by telegram_sync()
 
 
+EMAIL_ALERTS = False    # Purna 2026-11-02: Telegram only, no emails (set True to bring the email digest back)
+
+
 def configured():
     return {"telegram": bool(os.environ.get("TELEGRAM_TOKEN") and _tg_chat),
             "push": bool(os.environ.get("NTFY_TOPIC")),
-            "email": bool(os.environ.get("SMTP_USER") and os.environ.get("SMTP_PASS"))}
+            "email": EMAIL_ALERTS and bool(os.environ.get("SMTP_USER") and os.environ.get("SMTP_PASS"))}
 
 
 # ---------------------------------------------------------------- Telegram
@@ -260,6 +263,8 @@ def push(title, body, click=None, actions=None, priority="high", tags="rotating_
 
 
 def email(subject, text, html_body=None):
+    if not EMAIL_ALERTS:
+        return False
     user, pw = os.environ.get("SMTP_USER", "").strip(), os.environ.get("SMTP_PASS", "").strip()
     if not (user and pw):
         return False
@@ -289,7 +294,7 @@ def send_jobs(alerts, log):
     for i, a in enumerate(alerts):
         chunk = "• %s\n%s\n" % (_line(a), a["url"])
         if used + len(chunk.encode("utf-8")) > NTFY_MAX - 60:
-            lines.append("…+%d more (see email)" % (n - i))
+            lines.append("…+%d more (see Telegram)" % (n - i))
             break
         lines.append(chunk)
         used += len(chunk.encode("utf-8"))
