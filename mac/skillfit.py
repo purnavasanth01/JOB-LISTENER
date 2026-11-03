@@ -85,14 +85,23 @@ def _key(item):
 def fill(skills, extras):
     """skills = [[label, items]], extras = [[ranked true skills per line]] ->
     (new skills, dropped JD items). A line that would wrap loses its last items (Claude lists required skills
-    first); a line with room takes the next extras that fit. A skill already on the page is never added twice."""
+    first); those JD skills first move to the line with the most room, then each line takes the next extras
+    that fit. A skill already on the page is never added twice."""
     limit = LINE_PT - SAFETY_PT
     lines = [[lab, split_items(val)] for lab, val in skills]
     used = {_key(x) for _, items in lines for x in items}
-    dropped = []
-    for i, (lab, items) in enumerate(lines):
+    cut, dropped = [], []
+    for lab, items in lines:
         while len(items) > 1 and width(lab, ", ".join(items)) > limit:
-            dropped.append(items.pop())
+            cut.insert(0, items.pop())
+    for x in cut:                                   # JD skills before filler: most room first
+        room = [(limit - width(lab, ", ".join(items + [x])), n) for n, (lab, items) in enumerate(lines)]
+        best = max(room)
+        if best[0] >= 0:
+            lines[best[1]][1].append(x)
+        else:
+            dropped.append(x)
+    for i, (lab, items) in enumerate(lines):
         for x in (extras[i] if i < len(extras) else []):
             if _key(x) not in used and width(lab, ", ".join(items + [x])) <= limit:
                 items.append(x)

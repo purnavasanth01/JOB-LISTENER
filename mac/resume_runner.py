@@ -232,7 +232,7 @@ the \resumeItem lines, the skills \item lines and the optional Airkrit block in 
   printed line holds ~103-113 characters (label + items, "\&" counts as 1); aim for at most ~100. Never list a
   skill twice (e.g. Python on two lines). Company cloud rule, avoid "(" or "/" on the first skills line when the
   page is full (0.56pt trap).
-- skills_extra: one list per skills line (same order): 10-12 more TRUE Part 9 skills that suit that line's label
+- skills_extra: one list per skills line (same order): 15 more TRUE Part 9 skills that suit that line's label
   and this job, most relevant first, none already on the page. Do NOT pad the skills lines yourself: the script
   measures the exact printed width and appends these until each line reaches the margin.
 - Plan the page with the Part 7 arithmetic: MAIN (12 two-line bullets + 4 one-line skills, no Airkrit) is exactly
