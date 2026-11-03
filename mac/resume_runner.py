@@ -184,7 +184,8 @@ def stem_for(company, title, key):
 
 SPEC_SCHEMA = {
     "type": "object", "additionalProperties": False,
-    "required": ["lane", "title", "tamu", "vz", "pep", "cal", "airkrit", "skills", "fit", "new_wordings", "notes", "key_note"],
+    "required": ["lane", "title", "tamu", "vz", "pep", "cal", "airkrit", "skills", "skills_extra", "fit",
+                 "new_wordings", "notes", "key_note"],
     "properties": {
         "lane": {"type": "string"},
         "title": {"type": "string"},
@@ -195,6 +196,8 @@ SPEC_SCHEMA = {
         "airkrit": {"anyOf": [{"type": "null"}, {"type": "array", "items": {"type": "string"}}]},
         "skills": {"type": "array", "minItems": 4, "maxItems": 5,
                    "items": {"type": "array", "items": {"type": "string"}, "minItems": 2, "maxItems": 2}},
+        "skills_extra": {"type": "array", "minItems": 4, "maxItems": 5,
+                         "items": {"type": "array", "items": {"type": "string"}}},
         "fit": {"type": "object", "additionalProperties": False,
                 "required": ["what_the_job_is", "meets", "gaps", "angle", "rating", "reason"],
                 "properties": {k: {"type": "string"} for k in
@@ -224,10 +227,14 @@ the \resumeItem lines, the skills \item lines and the optional Airkrit block in 
   (2026-11-02, his explicit decision, overrides the Part 9 true-skills / never-claim lists FOR THE SKILLS LINES
   ONLY): list EVERY technical skill the JD names (languages, frameworks, tools, platforms; required first, then
   nice-to-have), using the JD's exact wording, whether or not it is in Part 9. Not skills: degrees, clearances,
-  soft skills, years of experience. Then fill each line to the margin with the next most relevant Part 9 skills.
-  If the JD's skills don't all fit, keep the required ones. Bullets and the title must still state only true facts. A printed line holds ~103-113 characters (label + items, as printed: "\&" counts as 1), so aim
-  for 100-106 and never more than ~108 (a wrapped line fails). Never list a skill twice (e.g. Python on two lines). Company cloud rule, avoid "(" or
-  "/" on the first skills line when the page is full (0.56pt trap).
+  soft skills, years of experience. Order each line most important first (required, then nice-to-have): if a
+  line is too long the script drops its LAST items. Bullets and the title must still state only true facts. A
+  printed line holds ~103-113 characters (label + items, "\&" counts as 1); aim for at most ~100. Never list a
+  skill twice (e.g. Python on two lines). Company cloud rule, avoid "(" or "/" on the first skills line when the
+  page is full (0.56pt trap).
+- skills_extra: one list per skills line (same order): 10-12 more TRUE Part 9 skills that suit that line's label
+  and this job, most relevant first, none already on the page. Do NOT pad the skills lines yourself: the script
+  measures the exact printed width and appends these until each line reaches the margin.
 - Plan the page with the Part 7 arithmetic: MAIN (12 two-line bullets + 4 one-line skills, no Airkrit) is exactly
   full (742.73pt). The page must be FILLED (730-742.73pt), never over.
 - CalTrack and every other number: use exactly what MAIN.tex says (R\textsuperscript{2} = 0.97, 4.5 kcal MAE).
@@ -256,8 +263,8 @@ def ask_claude(rules, main_tex, jd, previous=None, feedback=None):
                   "skills_space: a line with more than %dpt empty has room left -> add the next most relevant true "
                   "skills (about free_chars characters, ~4.9pt each); a line that wraps -> shorten it."
                   % pdfcheck_full_pt()]
-    cmd = [claude_bin(), "-p", "--output-format", "json", "--tools", "", "--no-session-persistence",
-           "--json-schema", json.dumps(SPEC_SCHEMA)]
+    cmd = [claude_bin(), "-p", "--model", "opus", "--effort", "medium", "--output-format", "json", "--tools", "",
+           "--no-session-persistence", "--json-schema", json.dumps(SPEC_SCHEMA)]
     r = subprocess.run(cmd, input="".join(parts), capture_output=True, text=True, timeout=900)
     try:
         out = json.loads(r.stdout)
@@ -294,7 +301,13 @@ def fit_section(spec):
 def check_spec(ctx, spec):
     """Build from MAIN.tex with resume_tool, compile on Overleaf, check the page. -> (res, tex, pdf)"""
     import pdfcheck
+    import skillfit
     rt, main_tex = ctx["rt"], ctx["main"]
+    if not spec.get("_filled"):                    # fill skills lines to the margin here: no 2nd Claude call
+        spec["skills"], dropped = skillfit.fill(spec["skills"], spec.get("skills_extra") or [])
+        spec["_filled"] = True
+        if dropped:
+            spec["notes"] = ("Dropped from skills (no room): %s. " % ", ".join(dropped)) + (spec.get("notes") or "")
     spec_rt = dict(spec, skills=[tuple(x) for x in spec["skills"]], airkrit=spec.get("airkrit") or None)
     try:
         tex = rt.build(main_tex, spec_rt)
@@ -359,8 +372,8 @@ def run_jobs(ctx, todo, on_done, on_error):
                 j["last"] = (res, tex, pdf, spec)
                 if res.get("PASS") and (j["best"] is None or quality(res) >= quality(j["best"][0])):
                     j["best"] = j["last"]
-                if (res.get("PASS") and res.get("FILL_OK") and res.get("SKILLS_FULL", True)) \
-                        or j["attempt"] >= MAX_ATTEMPTS:
+                # skills room alone never costs a 2nd Claude call (skillfit already filled the lines)
+                if (res.get("PASS") and res.get("FILL_OK")) or j["attempt"] >= MAX_ATTEMPTS:
                     res, tex, pdf, spec = j["best"] or j["last"]
                     ok = bool(res.get("PASS"))
                     on_done(hid, j["e"], j["jd"], dict(status="ready" if ok else "needs you", tex=tex,
@@ -808,6 +821,9 @@ def main():
     write_table(ledger)
     todo = [t for t in todo if t[2]][:MAX_JOBS_PER_RUN]
     log("%d starred job(s) to process" % len(todo))
+    # no idle sleep until this run ends (a slept Mac re-ran Claude calls on Nov 2). Started from here, not from
+    # launchd, so python stays the process that holds Full Disk Access. A closed lid still sleeps.
+    subprocess.Popen(["/usr/bin/caffeinate", "-i", "-w", str(os.getpid())])
 
     import overleaf
     rt = resume_tool()
