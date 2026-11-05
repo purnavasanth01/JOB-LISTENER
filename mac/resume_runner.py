@@ -263,7 +263,7 @@ def ask_claude(rules, main_tex, jd, previous=None, feedback=None):
                   "skills_space: a line with more than %dpt empty has room left -> add the next most relevant true "
                   "skills (about free_chars characters, ~4.9pt each); a line that wraps -> shorten it."
                   % pdfcheck_full_pt()]
-    cmd = [claude_bin(), "-p", "--model", "opus", "--effort", "medium", "--output-format", "json", "--tools", "",
+    cmd = [claude_bin(), "-p", "--model", "sonnet", "--effort", "medium", "--output-format", "json", "--tools", "",
            "--no-session-persistence", "--json-schema", json.dumps(SPEC_SCHEMA)]
     r = subprocess.run(cmd, input="".join(parts), capture_output=True, text=True, timeout=900)
     try:
