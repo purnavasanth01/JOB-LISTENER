@@ -1,0 +1,21 @@
+# IBM — Quantum Data Scientist Intern - 2027
+
+- **Job key:** `jobright:6ae9f63f43826864b0fbba47` (req/ID: 6ae9f63f43826864b0fbba47)
+- **Employer:** IBM
+- **Role family:** Data
+- **Location:** Yorktown Heights, NY, United States
+- **Pay:** not stated
+- **Term:** not stated (confirm Summer 2027)
+- **Posted:** Nov 04 · **Found:** 2026-11-04 12:09 CT
+- **Link:** https://jobright.ai/jobs/info/6ae9f63f43826864b0fbba47
+- **Found by:** Listener 3 (Jobright list)
+- **Sponsorship wording:** "IBM has a track record of offering H1B sponsorships, with 1230 in 2026, 2857 in 2025, 3115 in 2024, 2047 in 2023, 1795 in 2022, 1153 in 2021, 2669 in 2020."
+- **Flags:** none
+
+## Job description (verbatim)
+
+IBM is hiring a Quantum Data Scientist Intern to contribute to IBM Quantum’s data and analytics platform and analytical products. The intern will develop analytics solutions, perform data analyses, and collaborate with cross-functional stakeholders to support strategic and operational decision-making.. . Responsibilities. Support the design, development, and enhancement of IBM Quantum's scalable data and analytics platform. Develop data models, dashboards, reports, and self-service analytics solutions that enable informed decision making. Apply analytics engineering best practices to improve data reliability, consistency, governance, and accessibility. Perform advanced data analyses to identify trends, opportunities, and actionable business insights. Collaborate with internal teams such as Product, Engineering, Client Success, Community, Marketing teams to understand business requirements and translate them into analytical solutions. Assist in designing and implementing data pipelines and transformations to support reporting and analytical use cases. Communicate findings and recommendations through clear visualizations, presentations, and written analyses tailored to both technical and non-technical audiences. Contribute to documentation, knowledge sharing, and continuous improvement of the team's analytics and data engineering practice. . Skills. Bachelor's Degree. Experience working with Python (and common data science libraries such as Pandas, NumPy, scikit-learn) and SQL for data analysis, transformation, and querying large datasets. Experience with statistical modeling, forecasting, experimentation, or machine learning techniques. Strong analytical and problem-solving skills with the ability to navigate ambiguous business questions and deliver insights with limited guidance. Ability to work collaboratively in a cross-functional environment with both technical and business stakeholders. Excellent written and verbal communication skills. Master's Degree. Experience with analytics engineering practices and tools such as dbt or similar transformation frameworks. Exposure to Airflow, Apache Spark, Presto/Trino, or similar data ecosystem technologies. Experience working with large-scale event, product, customer, or operational datasets. Knowledge of Git, software development best practices, and CI/CD workflows. Prior internship, research, open-source, or project experience involving data science, analytics engineering, or data platform development. Interest in quantum computing, emerging technologies, and data-driven product development. . Benefits. Supplemental 1 employees may be eligible for up to 8 paid holidays. Supplemental 1 employees may be eligible for minimum of 56 hours paid sick time. Supplemental 1 employees may be eligible for the IBM Employee Stock Purchase Plan. IBM offers paid family medical leave and disability benefits to eligible employees where required by applicable law. Opportunities to learn and develop yourself and your career. . Company Overview. IBM provides technology and consulting, including software, infrastructure systems, and cloud-based solutions. It was founded in 1911, and is headquartered in Armonk, New York, USA, with a workforce of 10001+ employees. Its website is http://www.ibm.com.. . Company H1B Sponsorship. IBM has a track record of offering H1B sponsorships, with 1230 in 2026, 2857 in 2025, 3115 in 2024, 2047 in 2023, 1795 in 2022, 1153 in 2021, 2669 in 2020. Please note that this does not guarantee sponsorship for this specific role.. .
+
+## ATS keywords
+
+CI/CD, cloud, Git, machine learning, Python, software, Spark, SQL
