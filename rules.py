@@ -322,7 +322,10 @@ UNDERGRAD_DESC = rx(r"(pursuing|enrolled in|working toward?s?)\s+(a |an |your )?
                     r"|\brising (senior|junior|sophomore)s?\b|\bmust be an? undergraduate\b|\bundergraduate students? only\b"
                     r"|\b(freshman|sophomore|junior) (standing|year)\b")
 NON_UNDERGRAD_DESC = rx(r"\bmaster'?s\b|\bm\.?s\.?\b(?!\s*(office|excel|word|teams|365))|\bgraduate (degree|students?|program"
-                        r"|level|school)\b|\badvanced degree\b|\bph\.?\s?d\b|\bmba\b|\bpost-?graduate\b|\bbs/ms\b")
+                        r"|level|school)\b|\badvanced degree\b|\bph\.?\s?d\b|\bmba\b|\bpost-?graduate\b|\bbs/ms\b"
+                        # "Bachelor's degree or above / and higher / or beyond" is open to Master's students
+                        r"|\bbachelor'?s?\b(\s+degree)?[^.;\n]{0,50}?\b(or|and|and/or|/)\s+(above|higher|beyond|more advanced"
+                        r"|up to (a )?(master|phd|doctor))\b")
 
 MONTHS = {m: i + 1 for i, m in enumerate(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct",
                                           "nov", "dec"])}

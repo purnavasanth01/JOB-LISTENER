@@ -150,6 +150,7 @@ class HardDrops(unittest.TestCase):
             "We do not sponsor H-1B visas.": "no H-1B sponsorship",
             "Must be currently pursuing a Bachelor's degree in Computer Science.": "undergrad only (description)",
             "Open to rising seniors in Computer Science.": "undergrad only (description)",
+            "Applicants must have a GPA of 3.0 or above. Must be currently pursuing a Bachelor's degree in CS.": "undergrad only (description)",
             "Candidates must be enrolled in a PhD program.": "PhD required (description)",
         }
         for d, want in cases.items():
@@ -160,6 +161,9 @@ class HardDrops(unittest.TestCase):
             "Applicants must be authorized to work in the US.",
             "F-1 students are eligible if they are using CPT.",
             "We sponsor H-1B for full-time conversions.",
+            "- Are enrolled in a Bachelor's degree or above in Computer Science, Computer Engineering, or related STEM fields",
+            "Currently enrolled in a Bachelor's degree program or higher in Computer Science.",
+            "Must be pursuing a Bachelor's degree in CS and above.",
         ]
         for d in keeps:
             self.assertIsNone(e("Software Engineer Intern", d)["drop"], d)
