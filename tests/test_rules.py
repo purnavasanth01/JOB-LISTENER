@@ -164,6 +164,8 @@ class HardDrops(unittest.TestCase):
             "- Are enrolled in a Bachelor's degree or above in Computer Science, Computer Engineering, or related STEM fields",
             "Currently enrolled in a Bachelor's degree program or higher in Computer Science.",
             "Must be pursuing a Bachelor's degree in CS and above.",
+            "Pursuing an undergraduate degree or above in CS.",
+            "Pursuing a BS or above in Computer Science.",
         ]
         for d in keeps:
             self.assertIsNone(e("Software Engineer Intern", d)["drop"], d)
