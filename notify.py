@@ -1,7 +1,12 @@
-"""Alerts: Telegram + email (+ optional ntfy) once per run. Config comes from environment variables (GitHub Secrets).
+"""Alerts: Telegram + JOB_APP web push + email (+ optional ntfy) once per run. Config comes from environment variables
+(GitHub Secrets).
 
 Telegram: TELEGRAM_TOKEN from @BotFather. The chat is detected automatically the first time you message the bot
 (only that private chat is ever used); TELEGRAM_CHAT_ID can pin it explicitly.
+
+JOB_APP (https://purnavasanth01.github.io/JOB_APP/): the app saves its state (blacklist + each device's push
+subscription) to sync/state.json on the "data" branch of purnavasanth01/JOB_APP. The listener reads it every run
+(GITHUB_TOKEN for the API rate limit) and sends web push with VAPID_PRIVATE_KEY (PEM, GitHub Secret).
 """
 import html
 import json
@@ -10,6 +15,7 @@ import re
 import smtplib
 import ssl
 import time
+import urllib.error
 import urllib.request
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -282,9 +288,13 @@ def email(subject, text, html_body=None):
     return True
 
 
-def send_jobs(alerts, log):
+def send_jobs(alerts, log, app_state=None):
     """alerts: list of dicts (company, rank, title, role, location, tags, url, layer, count).
     Returns True if at least one channel delivered (otherwise the caller retries next run)."""
+    try:
+        web_push(alerts, app_state or {}, log)
+    except Exception as e:  # noqa: BLE001 - never let alerting crash the run
+        log("web push failed: %s" % e)
     n = len(alerts)
     companies = sorted({a["company"] for a in alerts})
     title = "%d new internship%s: %s" % (n, "" if n == 1 else "s", ", ".join(companies[:3]) +
@@ -330,6 +340,85 @@ def send_jobs(alerts, log):
     except Exception as e:  # noqa: BLE001
         log("email failed: %s" % e)
     return ok
+
+
+# ---------------------------------------------------------------- JOB_APP: synced state + web push
+
+APP_URL = "https://purnavasanth01.github.io/JOB_APP/"
+APP_STATE_API = "https://api.github.com/repos/purnavasanth01/JOB_APP/contents/sync/state.json?ref=data"
+PUSH_PER_JOB_MAX = 8      # H1B_LIST jobs get one notification each (up to this many per run); the rest one summary
+
+
+def load_app_state(log):
+    """The app's synced state ({} when it does not exist yet or GitHub is unreachable)."""
+    headers = {"Accept": "application/vnd.github.raw+json", "User-Agent": "job-listener"}
+    if os.environ.get("GITHUB_TOKEN"):
+        headers["Authorization"] = "Bearer " + os.environ["GITHUB_TOKEN"]
+    try:
+        with urllib.request.urlopen(urllib.request.Request(APP_STATE_API, headers=headers), timeout=15) as r:
+            return json.loads(r.read().decode("utf-8")) or {}
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            log("app state: HTTP %s" % e.code)
+    except Exception as e:  # noqa: BLE001 - the app state is optional, never fail the run for it
+        log("app state: %s" % e)
+    return {}
+
+
+def app_blacklist(state):
+    """Normalized company keys blacklisted in the app (same normalization as rules.norm_company)."""
+    return {k for k, v in (state.get("blacklist") or {}).items() if isinstance(v, dict) and v.get("on")}
+
+
+def _push_messages(alerts):
+    msgs = []
+    h1b = [a for a in alerts if a.get("target")]
+    for a in h1b[:PUSH_PER_JOB_MAX]:
+        top = bool(a.get("autostar"))
+        loc = (a.get("location") or "").split(";")[0].strip()
+        msgs.append({"title": "%s %s%s" % ("👑" if top else "🔥", a["company"], " #%s" % a["rank"] if a.get("rank") else ""),
+                     "body": a["title"] + ("\n📍 " + loc if loc else ""),
+                     "tag": "job-%s" % a.get("hid", ""), "url": APP_URL, "top": top})
+    rest = h1b[PUSH_PER_JOB_MAX:] + [a for a in alerts if not a.get("target")]
+    if rest:
+        names = sorted({a["company"] for a in rest})
+        msgs.append({"title": "🔔 %d new job%s" % (len(rest), "" if len(rest) == 1 else "s"),
+                     "body": ", ".join(names[:6]) + (" +%d more" % (len(names) - 6) if len(names) > 6 else ""),
+                     "tag": "summary-%d" % int(time.time()), "url": APP_URL, "top": False})
+    return msgs
+
+
+def web_push(alerts, state, log):
+    """Send the alerts to every device that tapped 🔔 in the app. True if at least one push was accepted."""
+    key = os.environ.get("VAPID_PRIVATE_KEY")
+    subs = [v["sub"] for v in (state.get("subs") or {}).values()
+            if isinstance(v, dict) and v.get("on", True) and isinstance(v.get("sub"), dict)]
+    if not (key and subs and alerts):
+        return False
+    try:
+        from py_vapid import Vapid
+        from pywebpush import WebPushException, webpush
+    except ImportError:
+        log("web push: pywebpush is not installed")
+        return False
+    if "BEGIN" in key:                       # the secret is stored as PEM text; pywebpush wants a Vapid object
+        key = Vapid.from_pem(key.replace("\\n", "\n").strip().encode())
+    msgs, sent = _push_messages(alerts), 0
+    for sub in subs:
+        for m in msgs:
+            try:
+                webpush(subscription_info=sub, data=json.dumps(m), vapid_private_key=key,
+                        vapid_claims={"sub": "https://purnavasanth01.github.io"}, ttl=24 * 3600)   # sender id, no path
+                sent += 1
+            except WebPushException as e:
+                code = getattr(e.response, "status_code", None)
+                log("web push failed (HTTP %s)%s" % (code, ": device unsubscribed" if code in (404, 410) else ""))
+                if code in (404, 410):
+                    break
+            except Exception as e:  # noqa: BLE001
+                log("web push failed: %s" % e)
+    log("web push: %d notification(s) to %d device(s)" % (sent, len(subs)))
+    return sent > 0
 
 
 def send_status(title, body, log, priority="default"):

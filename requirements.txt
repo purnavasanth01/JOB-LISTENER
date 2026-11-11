@@ -1,0 +1,2 @@
+# Everything else is Python's standard library.
+pywebpush==2.1.2   # JOB_APP phone/Mac notifications (Web Push, VAPID)

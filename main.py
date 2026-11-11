@@ -182,6 +182,7 @@ class Run:
         for k, e in self.st.seen.items():
             self.index.add(k, e)
         self.targets, self.alias = self._load_targets()
+        self.app_state, self.blacklist = {}, set()     # filled in go() from JOB_APP's synced state
         self.status = []                  # status lines (broken / recovered / seeded) sent once per run
         self.rows = {"alerts.csv": [], "dropped.csv": [], "missed.csv": [], "backlog.csv": [], "borderline.csv": []}
         self.backlog_fps = set()
@@ -436,6 +437,9 @@ class Run:
             if reason:
                 self.drop(j, reason)
                 continue
+            if rules.norm_company(j.get("company")) in self.blacklist:   # blacklisted in JOB_APP (🚫, double-confirmed)
+                self.drop(j, "blacklisted in app", role)
+                continue
             ready.append((j, role))
         fetched = self.fetch_descriptions([j for j, _ in ready])   # 2) descriptions, in parallel per website
         for j, role in ready:                             # 3) the same checks as before, one job at a time
@@ -645,7 +649,7 @@ class Run:
             # secrets not set yet: keep the alerts queued so they are delivered once they are
             self.st.unsent = [] if (self.args.dry_run or self.args.no_notify) else batch[-200:]
             return
-        if notify.send_jobs(batch, self.log):
+        if notify.send_jobs(batch, self.log, self.app_state):
             self.log("sent %d alerts" % len(batch))
             for a in batch:
                 if a.get("msg_id") and a.get("hid") in self.st.stars:
@@ -705,6 +709,10 @@ class Run:
             f.write("\n".join(self.logs) + "\n")
 
     def go(self):
+        self.app_state = notify.load_app_state(self.log)      # JOB_APP: blacklist + push subscriptions
+        self.blacklist = notify.app_blacklist(self.app_state)
+        if self.blacklist:
+            self.log("app blacklist: %d compan%s" % (len(self.blacklist), "y" if len(self.blacklist) == 1 else "ies"))
         results = self.fetch_all()
         self.process(results)
         self.deliver()
