@@ -400,7 +400,7 @@ def _listings_json(url, st, src_name):
             continue
         posted = x.get("date_posted")
         if isinstance(posted, (int, float)):
-            posted = datetime.fromtimestamp(posted, timezone.utc).strftime("%Y-%m-%d")
+            posted = datetime.fromtimestamp(posted, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")   # keep the time (app shows "posted 2h ago")
         season = x.get("season")
         terms = x.get("terms")
         out.append(_job("%s:%s" % (src_name, x.get("id")), x.get("company_name") or "", x.get("title"),
