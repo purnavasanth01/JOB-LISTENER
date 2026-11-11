@@ -493,7 +493,8 @@ class Run:
             loc = "; ".join(list(dict.fromkeys(l.strip() for l in (locs or j.get("locations") or []) if l))[:3])
             hid = hashlib.sha1(j["key"].encode()).hexdigest()[:10]
             a = {"key": j["key"], "hid": hid, "company": j["company"], "rank": t["rank"] if t else None,
-                 "target": bool(t), "title": j["title"], "role": role, "location": loc, "tags": flags,
+                 "target": bool(t), "autostar": bool(t and t.get("autostar")),
+                 "title": j["title"], "role": role, "location": loc, "tags": flags,
                  "line": elig["line"], "url": j.get("url"), "layer": j["layer"], "listener": self.listener_label(j),
                  "count": 1}
             self.groups[gkey] = a
@@ -501,8 +502,8 @@ class Run:
             self.record(j, "alert")
             self.st.stars[hid] = {"key": j["key"], "company": j["company"], "title": j["title"], "url": j.get("url"),
                                   "location": loc, "rank": a["rank"], "listener": a["listener"], "role": role,
-                                  "status": "starred" if t else "new", "alerted": self.now_s,
-                                  "starred": self.now_s if t else None}
+                                  "status": "starred" if a["autostar"] else "new", "alerted": self.now_s,
+                                  "starred": self.now_s if a["autostar"] else None}
             self.jd_files[hid] = self.render_jd(j, a, desc)
             row = self.row(j, role, flags, location=loc, evidence=elig["line"] or "")
             self.rows["alerts.csv"].append(row)

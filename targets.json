@@ -1,74 +1,1453 @@
 {
-  "_about": "TARGET companies (H-1B sponsors, FY2024-FY2026 USCIS data). rank 1-58 = clean, 59-69 = flagged. sources = where Listener 1/2 read jobs directly; empty sources = covered only by Listener 3 (Simplify/vansh/Jobright lists). Verified live Oct 30 2026.",
+  "_about": "TARGET companies = H1B_LIST (VASANTH_SERVER/COMPANIES/H1B_LIST.txt, Purna 2026-11-11), ranked 1-121. autostar=true only for the top 25. 'flag' = sponsorship warning seen in postings. sources = where Listener 1/2 read jobs directly; empty sources = covered only by Listener 3 (Simplify/vansh/Jobright lists).",
   "companies": [
-    {"rank": 1, "name": "Amazon", "aliases": ["Amazon Web Services", "AWS", "Amazon.com"], "sources": [{"type": "amazon"}]},
-    {"rank": 2, "name": "Google", "aliases": ["Google LLC", "Alphabet"], "sources": [{"type": "google"}]},
-    {"rank": 3, "name": "Meta", "aliases": ["Meta Platforms", "Facebook"], "sources": []},
-    {"rank": 4, "name": "Microsoft", "aliases": [], "sources": [{"type": "microsoft"}]},
-    {"rank": 5, "name": "Apple", "aliases": [], "sources": []},
-    {"rank": 6, "name": "Oracle", "aliases": [], "sources": [{"type": "orc", "host": "eeho.fa.us2.oraclecloud.com", "site": "CX_45001"}]},
-    {"rank": 7, "name": "ByteDance/TikTok", "aliases": ["TikTok", "ByteDance", "TikTok USDS", "TikTok USDS Joint Venture", "TikTok Inc"], "sources": []},
-    {"rank": 8, "name": "Nvidia", "aliases": ["NVIDIA"], "sources": [{"type": "workday", "host": "nvidia.wd5.myworkdayjobs.com", "tenant": "nvidia", "site": "NVIDIAExternalCareerSite"}]},
-    {"rank": 9, "name": "Tesla", "aliases": [], "sources": []},
-    {"rank": 10, "name": "Cisco", "aliases": ["Cisco Systems", "Splunk"], "sources": [{"type": "workday", "host": "cisco.wd5.myworkdayjobs.com", "tenant": "cisco", "site": "cisco_careers"}]},
-    {"rank": 11, "name": "Goldman Sachs", "aliases": ["Goldman Sachs Group"], "sources": [{"type": "orc", "host": "hdpc.fa.us2.oraclecloud.com", "site": "LateralHiring"}]},
-    {"rank": 12, "name": "Salesforce", "aliases": ["Slack", "Tableau"], "sources": [{"type": "workday", "host": "salesforce.wd12.myworkdayjobs.com", "tenant": "salesforce", "site": "Futureforce_Internships", "all": true}]},
-    {"rank": 13, "name": "Intuit", "aliases": [], "sources": []},
-    {"rank": 14, "name": "LinkedIn", "aliases": [], "sources": [{"type": "smartrecruiters", "company": "LinkedIn3"}]},
-    {"rank": 15, "name": "Morgan Stanley", "aliases": [], "sources": [{"type": "workday", "host": "ms.wd5.myworkdayjobs.com", "tenant": "ms", "site": "External"}]},
-    {"rank": 16, "name": "Visa", "aliases": ["Visa Inc", "CyberSource"], "sources": [{"type": "workday", "host": "visa.wd5.myworkdayjobs.com", "tenant": "visa", "site": "Visa_Early_Careers", "all": true}]},
-    {"rank": 17, "name": "Bank of America", "aliases": ["BofA", "BofA Securities"], "sources": [{"type": "workday", "host": "ghr.wd1.myworkdayjobs.com", "tenant": "ghr", "site": "Lateral-US"}]},
-    {"rank": 18, "name": "General Motors", "aliases": ["GM"], "sources": [{"type": "workday", "host": "generalmotors.wd5.myworkdayjobs.com", "tenant": "generalmotors", "site": "Careers_GM"}]},
-    {"rank": 19, "name": "Adobe", "aliases": [], "sources": [{"type": "workday", "host": "adobe.wd5.myworkdayjobs.com", "tenant": "adobe", "site": "external_experienced"}]},
-    {"rank": 20, "name": "Ford", "aliases": ["Ford Motor", "Ford Motor Company"], "sources": []},
-    {"rank": 21, "name": "PayPal", "aliases": ["Venmo"], "sources": []},
-    {"rank": 22, "name": "Bloomberg", "aliases": ["Bloomberg LP"], "sources": []},
-    {"rank": 23, "name": "Uber", "aliases": [], "sources": [{"type": "orc", "host": "iaziqy.fa.ocs.oraclecloud.com", "site": "CX_1"}]},
-    {"rank": 24, "name": "American Express", "aliases": ["Amex"], "sources": [{"type": "orc", "host": "egug.fa.us2.oraclecloud.com", "site": "CX_1"}]},
-    {"rank": 25, "name": "Barclays", "aliases": [], "sources": [{"type": "workday", "host": "barclays.wd3.myworkdayjobs.com", "tenant": "barclays", "site": "External_Career_Site_Barclays"}]},
-    {"rank": 26, "name": "Dell", "aliases": ["Dell Technologies"], "sources": [{"type": "orc", "host": "iawmqy.fa.ocs.oraclecloud.com", "site": "CX"}]},
-    {"rank": 27, "name": "ServiceNow", "aliases": [], "sources": [{"type": "smartrecruiters", "company": "ServiceNow"}]},
-    {"rank": 28, "name": "U.S. Bank", "aliases": ["US Bank", "U.S. Bancorp"], "sources": [{"type": "workday", "host": "usbank.wd1.myworkdayjobs.com", "tenant": "usbank", "site": "US_Bank_Careers"}]},
-    {"rank": 29, "name": "Palo Alto Networks", "aliases": [], "sources": [{"type": "workday", "host": "paloaltonetworks.wd5.myworkdayjobs.com", "tenant": "paloaltonetworks", "site": "panwexternalcareers"}]},
-    {"rank": 30, "name": "SAP", "aliases": ["SAP America", "SAP Labs"], "sources": []},
-    {"rank": 31, "name": "eBay", "aliases": [], "sources": [{"type": "workday", "host": "ebay.wd5.myworkdayjobs.com", "tenant": "ebay", "site": "apply"}]},
-    {"rank": 32, "name": "Applied Materials", "aliases": [], "sources": [{"type": "workday", "host": "amat.wd1.myworkdayjobs.com", "tenant": "amat", "site": "External"}]},
-    {"rank": 33, "name": "Comcast", "aliases": ["NBCUniversal"], "sources": []},
-    {"rank": 34, "name": "AT&T", "aliases": ["ATT"], "sources": [{"type": "workday", "host": "att.wd1.myworkdayjobs.com", "tenant": "att", "site": "ATTCollege", "all": true}]},
-    {"rank": 35, "name": "Lucid", "aliases": ["Lucid Motors", "Lucid Group"], "sources": []},
-    {"rank": 36, "name": "Charles Schwab", "aliases": ["Schwab"], "sources": []},
-    {"rank": 37, "name": "Samsung", "aliases": ["Samsung Semiconductor", "Samsung Research America", "Samsung Electronics America"], "sources": [{"type": "greenhouse", "slug": "samsungsemiconductor"}, {"type": "workday", "host": "sec.wd3.myworkdayjobs.com", "tenant": "sec", "site": "Samsung_Careers"}]},
-    {"rank": 38, "name": "Micron", "aliases": ["Micron Technology"], "sources": [{"type": "workday", "host": "micron.wd1.myworkdayjobs.com", "tenant": "micron", "site": "External"}]},
-    {"rank": 39, "name": "DoorDash", "aliases": [], "sources": [{"type": "greenhouse", "slug": "doordashusa"}]},
-    {"rank": 40, "name": "HPE", "aliases": ["Hewlett Packard Enterprise", "Juniper Networks"], "sources": [{"type": "workday", "host": "hpe.wd5.myworkdayjobs.com", "tenant": "hpe", "site": "jobsathpe"}]},
-    {"rank": 41, "name": "Databricks", "aliases": [], "sources": [{"type": "greenhouse", "slug": "databricks"}]},
-    {"rank": 42, "name": "Snowflake", "aliases": [], "sources": [{"type": "ashby", "slug": "snowflake"}]},
-    {"rank": 43, "name": "Citadel", "aliases": ["Citadel Securities", "Citadel LLC"], "sources": []},
-    {"rank": 44, "name": "Netflix", "aliases": [], "sources": [{"type": "eightfold", "host": "explore.jobs.netflix.net", "domain": "netflix.com"}]},
-    {"rank": 45, "name": "Cadence", "aliases": ["Cadence Design Systems"], "sources": [{"type": "workday", "host": "cadence.wd1.myworkdayjobs.com", "tenant": "cadence", "site": "Univ_Careers", "all": true}]},
-    {"rank": 46, "name": "Stripe", "aliases": [], "sources": [{"type": "greenhouse", "slug": "stripe"}]},
-    {"rank": 47, "name": "Pinterest", "aliases": [], "sources": [{"type": "greenhouse", "slug": "pinterest"}]},
-    {"rank": 48, "name": "KLA", "aliases": ["KLA Corporation", "KLA-Tencor"], "sources": [{"type": "workday", "host": "kla.wd1.myworkdayjobs.com", "tenant": "kla", "site": "Search"}]},
-    {"rank": 49, "name": "Waymo", "aliases": [], "sources": [{"type": "greenhouse", "slug": "waymo"}]},
-    {"rank": 50, "name": "Coinbase", "aliases": [], "sources": [{"type": "greenhouse", "slug": "coinbase"}]},
-    {"rank": 51, "name": "Lyft", "aliases": [], "sources": [{"type": "greenhouse", "slug": "lyft"}]},
-    {"rank": 52, "name": "Two Sigma", "aliases": [], "sources": []},
-    {"rank": 53, "name": "MongoDB", "aliases": [], "sources": [{"type": "greenhouse", "slug": "mongodb"}]},
-    {"rank": 54, "name": "Cloudflare", "aliases": [], "sources": [{"type": "greenhouse", "slug": "cloudflare"}]},
-    {"rank": 55, "name": "Datadog", "aliases": [], "sources": [{"type": "greenhouse", "slug": "datadog"}]},
-    {"rank": 56, "name": "Jane Street", "aliases": [], "sources": [{"type": "greenhouse", "slug": "janestreet"}]},
-    {"rank": 57, "name": "Scale AI", "aliases": ["Scale"], "sources": [{"type": "greenhouse", "slug": "scaleai"}]},
-    {"rank": 58, "name": "D. E. Shaw", "aliases": ["DE Shaw", "D.E. Shaw", "D. E. Shaw & Co."], "sources": []},
-    {"rank": 59, "name": "Walmart", "flag": "says no sponsorship", "aliases": ["Walmart Global Tech", "Sam's Club"], "sources": [{"type": "workday", "host": "walmart.wd504.myworkdayjobs.com", "tenant": "walmart", "site": "WalmartExternal"}]},
-    {"rank": 60, "name": "JPMorgan Chase", "flag": "SWE program may exclude F-1 (secondary source)", "aliases": ["JP Morgan Chase", "JPMorgan", "J.P. Morgan", "JP Morgan", "JPMorgan Chase & Co."], "sources": [{"type": "orc", "host": "jpmc.fa.oraclecloud.com", "site": "CX_1001"}]},
-    {"rank": 61, "name": "Fidelity", "flag": "says no sponsorship", "aliases": ["Fidelity Investments"], "sources": [{"type": "workday", "host": "fmr.wd1.myworkdayjobs.com", "tenant": "fmr", "site": "targeted", "all": true}]},
-    {"rank": 62, "name": "Intel", "flag": "says no sponsorship", "aliases": [], "sources": [{"type": "workday", "host": "intel.wd1.myworkdayjobs.com", "tenant": "intel", "site": "External"}]},
-    {"rank": 63, "name": "Citi", "flag": "'now or in the future' wording", "aliases": ["Citigroup", "Citibank"], "sources": [{"type": "workday", "host": "citi.wd5.myworkdayjobs.com", "tenant": "citi", "site": "2"}]},
-    {"rank": 64, "name": "Qualcomm", "flag": "says no sponsorship (secondary source)", "aliases": [], "sources": []},
-    {"rank": 65, "name": "Capital One", "flag": "ambiguous sponsorship wording", "aliases": ["Discover", "Discover Financial"], "sources": [{"type": "workday", "host": "capitalone.wd12.myworkdayjobs.com", "tenant": "capitalone", "site": "Capital_One"}]},
-    {"rank": 66, "name": "AMD", "flag": "says no sponsorship", "aliases": ["Advanced Micro Devices", "Xilinx"], "sources": [{"type": "phenom", "host": "careers.amd.com"}]},
-    {"rank": 67, "name": "Rivian", "flag": "says no sponsorship", "aliases": ["Rivian and Volkswagen Group Technologies"], "sources": [{"type": "phenom", "host": "careers.rivian.com"}]},
-    {"rank": 68, "name": "Wells Fargo", "flag": "'now or in the future' wording", "aliases": [], "sources": [{"type": "workday", "host": "wd1.myworkdaysite.com", "tenant": "wf", "site": "WellsFargoJobs", "web": "https://wd1.myworkdaysite.com/recruiting/wf/WellsFargoJobs"}]},
-    {"rank": 69, "name": "Mastercard", "flag": "EXCLUDES F-1 (live posting)", "aliases": [], "sources": [{"type": "workday", "host": "mastercard.wd1.myworkdayjobs.com", "tenant": "mastercard", "site": "Campus", "all": true}]}
+    {
+      "rank": 1,
+      "name": "Amazon",
+      "aliases": [
+        "Amazon Web Services",
+        "AWS",
+        "Amazon.com"
+      ],
+      "sources": [
+        {
+          "type": "amazon"
+        }
+      ],
+      "autostar": true
+    },
+    {
+      "rank": 2,
+      "name": "Google",
+      "aliases": [
+        "Google LLC",
+        "Alphabet"
+      ],
+      "sources": [
+        {
+          "type": "google"
+        }
+      ],
+      "autostar": true
+    },
+    {
+      "rank": 3,
+      "name": "Tata Consultancy Services",
+      "aliases": [
+        "TCS",
+        "Tata Consultancy Services Limited"
+      ],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 4,
+      "name": "Microsoft",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "microsoft"
+        }
+      ],
+      "autostar": true
+    },
+    {
+      "rank": 5,
+      "name": "Cognizant",
+      "aliases": [
+        "Cognizant Technology Solutions"
+      ],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 6,
+      "name": "Infosys",
+      "aliases": [
+        "Infosys Limited",
+        "Infosys BPM"
+      ],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 7,
+      "name": "Meta",
+      "aliases": [
+        "Meta Platforms",
+        "Facebook"
+      ],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 8,
+      "name": "Apple",
+      "aliases": [],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 9,
+      "name": "Deloitte",
+      "aliases": [
+        "Deloitte Consulting",
+        "Deloitte & Touche",
+        "Deloitte Services",
+        "Deloitte LLP",
+        "Deloitte US"
+      ],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 10,
+      "name": "Intel",
+      "flag": "says no sponsorship",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "intel.wd1.myworkdayjobs.com",
+          "tenant": "intel",
+          "site": "External"
+        }
+      ],
+      "autostar": true
+    },
+    {
+      "rank": 11,
+      "name": "HCL",
+      "aliases": [
+        "HCLTech",
+        "HCL Technologies",
+        "HCL America"
+      ],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 12,
+      "name": "Walmart",
+      "flag": "says no sponsorship",
+      "aliases": [
+        "Walmart Global Tech",
+        "Sam's Club"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "walmart.wd504.myworkdayjobs.com",
+          "tenant": "walmart",
+          "site": "WalmartExternal"
+        }
+      ],
+      "autostar": true
+    },
+    {
+      "rank": 13,
+      "name": "Tesla",
+      "aliases": [],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 14,
+      "name": "JPMorgan Chase",
+      "flag": "SWE program may exclude F-1 (secondary source)",
+      "aliases": [
+        "JP Morgan Chase",
+        "JPMorgan",
+        "J.P. Morgan",
+        "JP Morgan",
+        "JPMorgan Chase & Co."
+      ],
+      "sources": [
+        {
+          "type": "orc",
+          "host": "jpmc.fa.oraclecloud.com",
+          "site": "CX_1001"
+        }
+      ],
+      "autostar": true
+    },
+    {
+      "rank": 15,
+      "name": "Capgemini",
+      "aliases": [
+        "Capgemini America",
+        "Capgemini Engineering",
+        "Capgemini Invent"
+      ],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 16,
+      "name": "Goldman Sachs",
+      "aliases": [
+        "Goldman Sachs Group"
+      ],
+      "sources": [
+        {
+          "type": "orc",
+          "host": "hdpc.fa.us2.oraclecloud.com",
+          "site": "LateralHiring"
+        }
+      ],
+      "autostar": true
+    },
+    {
+      "rank": 17,
+      "name": "EY",
+      "aliases": [
+        "Ernst & Young",
+        "Ernst & Young LLP",
+        "EY-Parthenon"
+      ],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 18,
+      "name": "IBM",
+      "aliases": [
+        "International Business Machines"
+      ],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 19,
+      "name": "ByteDance/TikTok",
+      "aliases": [
+        "TikTok",
+        "ByteDance",
+        "TikTok USDS",
+        "TikTok USDS Joint Venture",
+        "TikTok Inc"
+      ],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 20,
+      "name": "Oracle",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "orc",
+          "host": "eeho.fa.us2.oraclecloud.com",
+          "site": "CX_45001"
+        }
+      ],
+      "autostar": true
+    },
+    {
+      "rank": 21,
+      "name": "Nvidia",
+      "aliases": [
+        "NVIDIA"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "nvidia.wd5.myworkdayjobs.com",
+          "tenant": "nvidia",
+          "site": "NVIDIAExternalCareerSite"
+        }
+      ],
+      "autostar": true
+    },
+    {
+      "rank": 22,
+      "name": "LTIMindtree",
+      "aliases": [
+        "LTI Mindtree",
+        "Larsen & Toubro Infotech",
+        "Mindtree"
+      ],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 23,
+      "name": "Accenture",
+      "aliases": [
+        "Accenture Federal Services"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "accenture.wd103.myworkdayjobs.com",
+          "tenant": "accenture",
+          "site": "AccentureCareers"
+        }
+      ],
+      "autostar": true
+    },
+    {
+      "rank": 24,
+      "name": "McKinsey & Company",
+      "aliases": [
+        "McKinsey",
+        "QuantumBlack"
+      ],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 25,
+      "name": "Wipro",
+      "aliases": [
+        "Wipro Limited"
+      ],
+      "sources": [],
+      "autostar": true
+    },
+    {
+      "rank": 26,
+      "name": "Cisco",
+      "aliases": [
+        "Cisco Systems",
+        "Splunk"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "cisco.wd5.myworkdayjobs.com",
+          "tenant": "cisco",
+          "site": "cisco_careers"
+        }
+      ]
+    },
+    {
+      "rank": 27,
+      "name": "Fidelity",
+      "flag": "says no sponsorship",
+      "aliases": [
+        "Fidelity Investments"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "fmr.wd1.myworkdayjobs.com",
+          "tenant": "fmr",
+          "site": "targeted",
+          "all": true
+        }
+      ]
+    },
+    {
+      "rank": 28,
+      "name": "Salesforce",
+      "aliases": [
+        "Slack",
+        "Tableau"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "salesforce.wd12.myworkdayjobs.com",
+          "tenant": "salesforce",
+          "site": "Futureforce_Internships",
+          "all": true
+        }
+      ]
+    },
+    {
+      "rank": 29,
+      "name": "Bloomberg",
+      "aliases": [
+        "Bloomberg LP"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 30,
+      "name": "Qualcomm",
+      "flag": "says no sponsorship (secondary source)",
+      "aliases": [],
+      "sources": []
+    },
+    {
+      "rank": 31,
+      "name": "Citi",
+      "flag": "'now or in the future' wording",
+      "aliases": [
+        "Citigroup",
+        "Citibank"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "citi.wd5.myworkdayjobs.com",
+          "tenant": "citi",
+          "site": "2"
+        }
+      ]
+    },
+    {
+      "rank": 32,
+      "name": "PwC",
+      "aliases": [
+        "PricewaterhouseCoopers",
+        "PwC US"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "pwc.wd3.myworkdayjobs.com",
+          "tenant": "pwc",
+          "site": "US_Entry_Level_Careers"
+        }
+      ]
+    },
+    {
+      "rank": 33,
+      "name": "Capital One",
+      "flag": "ambiguous sponsorship wording",
+      "aliases": [
+        "Discover",
+        "Discover Financial"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "capitalone.wd12.myworkdayjobs.com",
+          "tenant": "capitalone",
+          "site": "Capital_One"
+        }
+      ]
+    },
+    {
+      "rank": 34,
+      "name": "Tech Mahindra",
+      "aliases": [],
+      "sources": []
+    },
+    {
+      "rank": 35,
+      "name": "Adobe",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "adobe.wd5.myworkdayjobs.com",
+          "tenant": "adobe",
+          "site": "external_experienced"
+        }
+      ]
+    },
+    {
+      "rank": 36,
+      "name": "Compunnel",
+      "aliases": [
+        "Compunnel Software Group",
+        "Compunnel Inc"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 37,
+      "name": "CVS Health",
+      "aliases": [
+        "CVS",
+        "Aetna",
+        "CVS Pharmacy"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "cvshealth.wd1.myworkdayjobs.com",
+          "tenant": "cvshealth",
+          "site": "CVS_Health_Careers"
+        }
+      ]
+    },
+    {
+      "rank": 38,
+      "name": "Boston Consulting Group",
+      "aliases": [
+        "BCG",
+        "BCG X",
+        "BCG Platinion"
+      ],
+      "sources": [
+        {
+          "type": "eightfold",
+          "host": "bcg.eightfold.ai",
+          "domain": "bcg.com"
+        }
+      ]
+    },
+    {
+      "rank": 39,
+      "name": "LinkedIn",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "smartrecruiters",
+          "company": "LinkedIn3"
+        }
+      ]
+    },
+    {
+      "rank": 40,
+      "name": "Cummins",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "orc",
+          "host": "fa-espx-saasfaprod1.fa.ocs.oraclecloud.com",
+          "site": "CX_1"
+        }
+      ]
+    },
+    {
+      "rank": 41,
+      "name": "Bank of America",
+      "aliases": [
+        "BofA",
+        "BofA Securities"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "ghr.wd1.myworkdayjobs.com",
+          "tenant": "ghr",
+          "site": "Lateral-US"
+        }
+      ]
+    },
+    {
+      "rank": 42,
+      "name": "Barclays",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "barclays.wd3.myworkdayjobs.com",
+          "tenant": "barclays",
+          "site": "External_Career_Site_Barclays"
+        }
+      ]
+    },
+    {
+      "rank": 43,
+      "name": "Morgan Stanley",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "ms.wd5.myworkdayjobs.com",
+          "tenant": "ms",
+          "site": "External"
+        }
+      ]
+    },
+    {
+      "rank": 44,
+      "name": "General Motors",
+      "aliases": [
+        "GM"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "generalmotors.wd5.myworkdayjobs.com",
+          "tenant": "generalmotors",
+          "site": "Careers_GM"
+        }
+      ]
+    },
+    {
+      "rank": 45,
+      "name": "Dell",
+      "aliases": [
+        "Dell Technologies"
+      ],
+      "sources": [
+        {
+          "type": "orc",
+          "host": "iawmqy.fa.ocs.oraclecloud.com",
+          "site": "CX"
+        }
+      ]
+    },
+    {
+      "rank": 46,
+      "name": "Mphasis",
+      "aliases": [],
+      "sources": []
+    },
+    {
+      "rank": 47,
+      "name": "Visa",
+      "aliases": [
+        "Visa Inc",
+        "CyberSource"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "visa.wd5.myworkdayjobs.com",
+          "tenant": "visa",
+          "site": "Visa_Early_Careers",
+          "all": true
+        }
+      ]
+    },
+    {
+      "rank": 48,
+      "name": "Uber",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "orc",
+          "host": "iaziqy.fa.ocs.oraclecloud.com",
+          "site": "CX_1"
+        }
+      ]
+    },
+    {
+      "rank": 49,
+      "name": "PayPal",
+      "aliases": [
+        "Venmo"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 50,
+      "name": "Applied Materials",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "amat.wd1.myworkdayjobs.com",
+          "tenant": "amat",
+          "site": "External"
+        }
+      ]
+    },
+    {
+      "rank": 51,
+      "name": "AMD",
+      "flag": "says no sponsorship",
+      "aliases": [
+        "Advanced Micro Devices",
+        "Xilinx"
+      ],
+      "sources": [
+        {
+          "type": "phenom",
+          "host": "careers.amd.com"
+        }
+      ]
+    },
+    {
+      "rank": 52,
+      "name": "Databricks",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "greenhouse",
+          "slug": "databricks"
+        }
+      ]
+    },
+    {
+      "rank": 53,
+      "name": "Ford",
+      "aliases": [
+        "Ford Motor",
+        "Ford Motor Company"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 54,
+      "name": "Intuit",
+      "aliases": [],
+      "sources": []
+    },
+    {
+      "rank": 55,
+      "name": "CGI",
+      "aliases": [
+        "CGI Federal"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 56,
+      "name": "Micron",
+      "aliases": [
+        "Micron Technology"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "micron.wd1.myworkdayjobs.com",
+          "tenant": "micron",
+          "site": "External"
+        }
+      ]
+    },
+    {
+      "rank": 57,
+      "name": "Virtusa",
+      "aliases": [],
+      "sources": []
+    },
+    {
+      "rank": 58,
+      "name": "Wells Fargo",
+      "flag": "'now or in the future' wording",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "wd1.myworkdaysite.com",
+          "tenant": "wf",
+          "site": "WellsFargoJobs",
+          "web": "https://wd1.myworkdaysite.com/recruiting/wf/WellsFargoJobs"
+        }
+      ]
+    },
+    {
+      "rank": 59,
+      "name": "Randstad",
+      "aliases": [
+        "Randstad Digital",
+        "Randstad USA",
+        "Randstad Technologies"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 60,
+      "name": "American Express",
+      "aliases": [
+        "Amex"
+      ],
+      "sources": [
+        {
+          "type": "orc",
+          "host": "egug.fa.us2.oraclecloud.com",
+          "site": "CX_1"
+        }
+      ]
+    },
+    {
+      "rank": 61,
+      "name": "U.S. Bank",
+      "aliases": [
+        "US Bank",
+        "U.S. Bancorp"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "usbank.wd1.myworkdayjobs.com",
+          "tenant": "usbank",
+          "site": "US_Bank_Careers"
+        }
+      ]
+    },
+    {
+      "rank": 62,
+      "name": "Broadcom",
+      "aliases": [
+        "VMware",
+        "Broadcom Inc"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "broadcom.wd1.myworkdayjobs.com",
+          "tenant": "broadcom",
+          "site": "External_Career"
+        }
+      ]
+    },
+    {
+      "rank": 63,
+      "name": "UnitedHealth Group",
+      "aliases": [
+        "UnitedHealthcare",
+        "Optum",
+        "UHG"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 64,
+      "name": "ServiceNow",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "smartrecruiters",
+          "company": "ServiceNow"
+        }
+      ]
+    },
+    {
+      "rank": 65,
+      "name": "eBay",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "ebay.wd5.myworkdayjobs.com",
+          "tenant": "ebay",
+          "site": "apply"
+        }
+      ]
+    },
+    {
+      "rank": 66,
+      "name": "Elevance Health",
+      "aliases": [
+        "Anthem",
+        "Carelon"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "elevancehealth.wd1.myworkdayjobs.com",
+          "tenant": "elevancehealth",
+          "site": "ANT"
+        }
+      ]
+    },
+    {
+      "rank": 67,
+      "name": "Atos",
+      "aliases": [
+        "Atos Syntel",
+        "Syntel",
+        "Eviden"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 68,
+      "name": "L&T Technology Services",
+      "aliases": [
+        "LTTS"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 69,
+      "name": "Kforce",
+      "aliases": [],
+      "sources": []
+    },
+    {
+      "rank": 70,
+      "name": "Comcast",
+      "aliases": [
+        "NBCUniversal"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 71,
+      "name": "UST",
+      "aliases": [
+        "UST Global"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 72,
+      "name": "Hexaware",
+      "aliases": [
+        "Hexaware Technologies"
+      ],
+      "sources": [
+        {
+          "type": "orc",
+          "host": "fa-etqo-saasfaprod1.fa.ocs.oraclecloud.com",
+          "site": "CX_1"
+        }
+      ]
+    },
+    {
+      "rank": 73,
+      "name": "NTT DATA",
+      "aliases": [
+        "NTT Data Services",
+        "NTT Data Americas"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "nttlimited.wd3.myworkdayjobs.com",
+          "tenant": "nttlimited",
+          "site": "NTT_Careers"
+        }
+      ]
+    },
+    {
+      "rank": 74,
+      "name": "Mastercard",
+      "flag": "EXCLUDES F-1 (live posting)",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "mastercard.wd1.myworkdayjobs.com",
+          "tenant": "mastercard",
+          "site": "Campus",
+          "all": true
+        }
+      ]
+    },
+    {
+      "rank": 75,
+      "name": "Charles Schwab",
+      "aliases": [
+        "Schwab"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 76,
+      "name": "Palo Alto Networks",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "paloaltonetworks.wd5.myworkdayjobs.com",
+          "tenant": "paloaltonetworks",
+          "site": "panwexternalcareers"
+        }
+      ]
+    },
+    {
+      "rank": 77,
+      "name": "Samsung",
+      "aliases": [
+        "Samsung Semiconductor",
+        "Samsung Research America",
+        "Samsung Electronics America"
+      ],
+      "sources": [
+        {
+          "type": "greenhouse",
+          "slug": "samsungsemiconductor"
+        },
+        {
+          "type": "workday",
+          "host": "sec.wd3.myworkdayjobs.com",
+          "tenant": "sec",
+          "site": "Samsung_Careers"
+        }
+      ]
+    },
+    {
+      "rank": 78,
+      "name": "Charter Communications",
+      "aliases": [
+        "Spectrum"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 79,
+      "name": "Synechron",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "synechron.wd1.myworkdayjobs.com",
+          "tenant": "synechron",
+          "site": "SynechronCareers"
+        }
+      ]
+    },
+    {
+      "rank": 80,
+      "name": "SAP",
+      "aliases": [
+        "SAP America",
+        "SAP Labs"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 81,
+      "name": "Expedia",
+      "aliases": [
+        "Expedia Group",
+        "Vrbo",
+        "Hotels.com"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "expedia.wd108.myworkdayjobs.com",
+          "tenant": "expedia",
+          "site": "search"
+        }
+      ]
+    },
+    {
+      "rank": 82,
+      "name": "T-Mobile",
+      "aliases": [
+        "TMobile",
+        "T Mobile"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "tmobile.wd1.myworkdayjobs.com",
+          "tenant": "tmobile",
+          "site": "External"
+        }
+      ]
+    },
+    {
+      "rank": 83,
+      "name": "DoorDash",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "greenhouse",
+          "slug": "doordashusa"
+        }
+      ]
+    },
+    {
+      "rank": 84,
+      "name": "AT&T",
+      "aliases": [
+        "ATT"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "att.wd1.myworkdayjobs.com",
+          "tenant": "att",
+          "site": "ATTCollege",
+          "all": true
+        }
+      ]
+    },
+    {
+      "rank": 85,
+      "name": "Lucid",
+      "aliases": [
+        "Lucid Motors",
+        "Lucid Group"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 86,
+      "name": "Fiserv",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "fiserv.wd5.myworkdayjobs.com",
+          "tenant": "fiserv",
+          "site": "EXT"
+        }
+      ]
+    },
+    {
+      "rank": 87,
+      "name": "Birlasoft",
+      "aliases": [],
+      "sources": []
+    },
+    {
+      "rank": 88,
+      "name": "ADP",
+      "aliases": [
+        "Automatic Data Processing"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 89,
+      "name": "HPE",
+      "aliases": [
+        "Hewlett Packard Enterprise",
+        "Juniper Networks"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "hpe.wd5.myworkdayjobs.com",
+          "tenant": "hpe",
+          "site": "jobsathpe"
+        }
+      ]
+    },
+    {
+      "rank": 90,
+      "name": "Workday",
+      "aliases": [
+        "Workday Inc"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "workday.wd5.myworkdayjobs.com",
+          "tenant": "workday",
+          "site": "Workday"
+        }
+      ]
+    },
+    {
+      "rank": 91,
+      "name": "Verizon",
+      "aliases": [
+        "Verizon Wireless",
+        "Verizon Communications"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "verizon.wd12.myworkdayjobs.com",
+          "tenant": "verizon",
+          "site": "verizon-careers"
+        }
+      ]
+    },
+    {
+      "rank": 92,
+      "name": "MathWorks",
+      "aliases": [
+        "The MathWorks"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 93,
+      "name": "BlackRock",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "blackrock.wd1.myworkdayjobs.com",
+          "tenant": "blackrock",
+          "site": "BlackRock_Professional"
+        }
+      ]
+    },
+    {
+      "rank": 94,
+      "name": "CitiusTech",
+      "aliases": [],
+      "sources": []
+    },
+    {
+      "rank": 95,
+      "name": "Lowe's",
+      "aliases": [
+        "Lowes",
+        "Lowe's Companies"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "lowes.wd5.myworkdayjobs.com",
+          "tenant": "lowes",
+          "site": "LWS_External_CS"
+        }
+      ]
+    },
+    {
+      "rank": 96,
+      "name": "Wayfair",
+      "aliases": [],
+      "sources": []
+    },
+    {
+      "rank": 97,
+      "name": "Snap",
+      "aliases": [
+        "Snapchat",
+        "Snap Inc"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "wd1.myworkdaysite.com",
+          "tenant": "snapchat",
+          "site": "snap",
+          "web": "https://wd1.myworkdaysite.com/recruiting/snapchat/snap"
+        }
+      ]
+    },
+    {
+      "rank": 98,
+      "name": "Nike",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "nike.wd1.myworkdayjobs.com",
+          "tenant": "nike",
+          "site": "nke"
+        }
+      ]
+    },
+    {
+      "rank": 99,
+      "name": "Synopsys",
+      "aliases": [],
+      "sources": []
+    },
+    {
+      "rank": 100,
+      "name": "ZS Associates",
+      "aliases": [
+        "ZS"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 101,
+      "name": "Snowflake",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "ashby",
+          "slug": "snowflake"
+        }
+      ]
+    },
+    {
+      "rank": 102,
+      "name": "Mastech Digital",
+      "aliases": [
+        "Mastech"
+      ],
+      "sources": [
+        {
+          "type": "smartrecruiters",
+          "company": "mastechdigital"
+        }
+      ]
+    },
+    {
+      "rank": 103,
+      "name": "State Street",
+      "aliases": [
+        "State Street Corporation"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "statestreet.wd1.myworkdayjobs.com",
+          "tenant": "statestreet",
+          "site": "Global"
+        }
+      ]
+    },
+    {
+      "rank": 104,
+      "name": "Infinite Computer Solutions",
+      "aliases": [],
+      "sources": []
+    },
+    {
+      "rank": 105,
+      "name": "Persistent Systems",
+      "aliases": [
+        "Persistent"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 106,
+      "name": "Citadel",
+      "aliases": [
+        "Citadel Securities",
+        "Citadel LLC"
+      ],
+      "sources": []
+    },
+    {
+      "rank": 107,
+      "name": "Stripe",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "greenhouse",
+          "slug": "stripe"
+        }
+      ]
+    },
+    {
+      "rank": 108,
+      "name": "Cadence",
+      "aliases": [
+        "Cadence Design Systems"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "cadence.wd1.myworkdayjobs.com",
+          "tenant": "cadence",
+          "site": "Univ_Careers",
+          "all": true
+        }
+      ]
+    },
+    {
+      "rank": 109,
+      "name": "Pinterest",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "greenhouse",
+          "slug": "pinterest"
+        }
+      ]
+    },
+    {
+      "rank": 110,
+      "name": "Netflix",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "eightfold",
+          "host": "explore.jobs.netflix.net",
+          "domain": "netflix.com"
+        }
+      ]
+    },
+    {
+      "rank": 111,
+      "name": "KLA",
+      "aliases": [
+        "KLA Corporation",
+        "KLA-Tencor"
+      ],
+      "sources": [
+        {
+          "type": "workday",
+          "host": "kla.wd1.myworkdayjobs.com",
+          "tenant": "kla",
+          "site": "Search"
+        }
+      ]
+    },
+    {
+      "rank": 112,
+      "name": "Waymo",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "greenhouse",
+          "slug": "waymo"
+        }
+      ]
+    },
+    {
+      "rank": 113,
+      "name": "Lyft",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "greenhouse",
+          "slug": "lyft"
+        }
+      ]
+    },
+    {
+      "rank": 114,
+      "name": "Coinbase",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "greenhouse",
+          "slug": "coinbase"
+        }
+      ]
+    },
+    {
+      "rank": 115,
+      "name": "Two Sigma",
+      "aliases": [],
+      "sources": []
+    },
+    {
+      "rank": 116,
+      "name": "MongoDB",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "greenhouse",
+          "slug": "mongodb"
+        }
+      ]
+    },
+    {
+      "rank": 117,
+      "name": "Cloudflare",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "greenhouse",
+          "slug": "cloudflare"
+        }
+      ]
+    },
+    {
+      "rank": 118,
+      "name": "Datadog",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "greenhouse",
+          "slug": "datadog"
+        }
+      ]
+    },
+    {
+      "rank": 119,
+      "name": "Jane Street",
+      "aliases": [],
+      "sources": [
+        {
+          "type": "greenhouse",
+          "slug": "janestreet"
+        }
+      ]
+    },
+    {
+      "rank": 120,
+      "name": "D. E. Shaw",
+      "aliases": [
+        "DE Shaw",
+        "D.E. Shaw",
+        "D. E. Shaw & Co."
+      ],
+      "sources": []
+    },
+    {
+      "rank": 121,
+      "name": "Scale AI",
+      "aliases": [
+        "Scale"
+      ],
+      "sources": [
+        {
+          "type": "greenhouse",
+          "slug": "scaleai"
+        }
+      ]
+    }
   ]
 }

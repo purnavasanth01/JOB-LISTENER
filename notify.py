@@ -62,7 +62,7 @@ def tg_send(text, buttons=None, markup=None):
 
 
 HELP = ("<b>Job listener bot</b>\nI message you every new 2027 internship within minutes.\n\n"
-        "⭐ Star = interested (a resume will be made). Target companies are starred automatically.\n"
+        "⭐ Star = interested. 🔥 = H1B_LIST company; the top 25 are starred automatically.\n"
         "❌ Remove = ignore the job.\nButtons are processed on the next check (within ~3 min).\n\n"
         "/status – listener health, today's numbers, starred count\n/help – this message")
 
@@ -154,7 +154,7 @@ def _keyboard(url, hid, starred):
 
 
 GROUP_SIZE = 10
-TARGET_HEADER = "🔥🔥 <b>TARGET COMPANIES · H-1B SPONSORS</b> 🔥🔥\n<i>auto-starred: resumes are made unless you tap ❌</i>"
+TARGET_HEADER = "🔥🔥 <b>TARGET COMPANIES · H-1B SPONSORS</b> 🔥🔥\n<i>top 25 are auto-starred ⭐ · tap ⭐ for the others</i>"
 OTHER_HEADER = "🔔 <b>New internships</b>\n<i>tap ⭐ for a resume</i>"
 
 
@@ -223,7 +223,7 @@ def telegram_jobs(alerts):
             for n, a in enumerate(chunk, 1):
                 a["idx"], a["block"], a["header"] = n, _job_block(a, n), header
                 items.append((a.get("hid"), {"idx": n, "block": a["block"], "url": a.get("url"),
-                                             "status": "starred" if a.get("target") else "new",
+                                             "status": "starred" if a.get("autostar") else "new",
                                              "company": a["company"], "title": a["title"]}))
             if sent:
                 time.sleep(1.05)               # Telegram allows ~1 message/second per chat
@@ -320,7 +320,7 @@ def send_jobs(alerts, log):
                 layer=html.escape(a.get("listener") or a.get("layer", "")), line=html.escape(a.get("line") or ""),
                 tags=html.escape(", ".join(a.get("tags") or [])))
         for a in alerts)
-    page = ("<p>{n} new internship{s}. 🔥 = target company (auto-starred). Apply today.</p><table border=1 cellpadding=5 "
+    page = ("<p>{n} new internship{s}. 🔥 = H1B_LIST target company (top 25 auto-starred). Apply today.</p><table border=1 cellpadding=5 "
             "cellspacing=0 style='border-collapse:collapse;font-family:sans-serif;font-size:13px'><tr><th>Company</th>"
             "<th>Title (apply link)</th><th>Location</th><th>Found by</th><th>Sponsorship line</th><th>Notes</th></tr>"
             "{rows}</table>"

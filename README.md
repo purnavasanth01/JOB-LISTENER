@@ -4,11 +4,11 @@ Phone + email alert within minutes of a new **Spring / Summer / Fall 2027** soft
 
 | Listener | Watches | How |
 |---|---|---|
-| 1 – own sites | Amazon, Google, Microsoft, Netflix, Oracle, Goldman, Uber, Dell, JPMorgan, Amex, AMD, Rivian | their careers APIs |
-| 2 – job systems | 45+ target companies on Workday, Greenhouse, Ashby, SmartRecruiters | public job-board APIs |
-| 3 – checker | Simplify, vanshb03, Jobright GitHub lists | catches anything 1/2 missed (tagged `MISSED by L1/L2`) and covers Meta, Apple, Tesla, TikTok, etc. |
+| 1 – own sites | Amazon, Google, Microsoft, Netflix, BCG, plus Oracle Cloud sites (Oracle, Goldman, Uber, Dell, JPMorgan, Amex, Cummins, Hexaware) | their careers APIs |
+| 2 – job systems | ~60 target companies on Workday, Greenhouse, Ashby, SmartRecruiters, Phenom | public job-board APIs |
+| 3 – checker | Simplify, vanshb03, Jobright GitHub lists | catches anything 1/2 missed (tagged `MISSED by L1/L2`), covers every other company, and is the only source for ~48 targets (Meta, Apple, Tesla, TikTok, TCS, Infosys, ...) |
 
-Targets live in `targets.json` (H-1B sponsors, ranked). Filters live in `rules.py`.
+Targets live in `targets.json`: the 121 H1B_LIST companies (H-1B sponsors, ranked; Rivian excluded). Filters live in `rules.py`.
 
 ## What gets alerted
 - Any software-type internship: SWE, full stack, backend, frontend, data, AI/ML, cloud, DevOps, QA/automation, security, UI/UX, FDE, PM/TPM, research, data/BI analyst, bank technology analyst, plus robotics / embedded **software** and compilers.
@@ -20,7 +20,7 @@ Targets live in `targets.json` (H-1B sponsors, ranked). Filters live in `rules.p
 
 ## Telegram buttons
 - 🔗 Apply · ⭐ Star (interested; resume will be made) · ❌ Remove (ignored, message deleted).
-- Target companies (top 70) are starred automatically; ⭐ never un-stars. Taps are processed on the next check (~3 min).
+- All 121 targets get the loud 🔥 message; only the top 25 (`"autostar": true` in `targets.json`) are starred automatically; ⭐ never un-stars. Resume generation is currently off (`RESUMES_ENABLED = False` in `mac/resume_runner.py`). Taps are processed on the next check (~3 min).
 - Starred jobs live in `stars.json` on the state branch.
 
 ## Files (on the `state` branch, updated every run)
