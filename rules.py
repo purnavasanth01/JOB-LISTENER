@@ -267,7 +267,9 @@ def location_check(locations):
 #
 # DROP if the description says any of:
 #   citizen / green card / asylee / clearance / US-persons only, ITAR, F-1/CPT/OPT not eligible,
-#   no sponsorship "now or in the future" / no H-1B, undergrad-only, PhD-only.
+#   no sponsorship "now or in the future" / no H-1B, ANY "no visa sponsorship" statement
+#   (Purna 2026-11-11: "not eligible for visa sponsorship" is now a drop too), list flag
+#   "Does Not Offer Sponsorship", undergrad-only, PhD-only.
 # Otherwise the alert carries the posting's own sponsorship sentence so the user can decide.
 
 CITIZEN = rx(r"\b(u\.?\s?s\.?|united states|american)\s+citizens?(hip)?\b|\bcitizenship\b|\bcitizens? only\b")
@@ -287,6 +289,8 @@ INCLUSIVE = rx(r"\bwork authori[sz]\w*|\bauthori[sz]ation to work\b|\bcpt\b|\bop
                r"|\bauthori[sz]ed to work\b")
 COND = rx(r"\b(may|might|could|if|depending|potentially|some positions|certain positions|in some cases)\b")
 SENT_SPLIT = re.compile(r"(?<=[.!?;•])\s+|\n+")
+# "permanent work authorization" means no visa holders, so it never makes a sentence inclusive
+PERM_AUTH = rx(r"\bpermanent(ly)?\s+(work\s+)?authori[sz]\w*(\s+to\s+work)?")
 CITIZEN_LABEL = rx(r"^((citizenship|clearance)( requirements?| level)?\s*[:\-]\s*)?(us|united states)\s+citizen(ship|s)?"
                    r"( required| only)?\s*\.?$")
 
@@ -298,6 +302,14 @@ FUTURE_SPONSOR = rx(r"now or in the future|currently or in the future|now or at 
                     r"|" + _NOT + r"[^.]{0,60}\bfuture\b[^.]{0,40}\bsponsor")
 H1B_NO = rx(r"\b(not|unable to|cannot|can'?t|won'?t|will not|does not|do not|no)\s+(\w+\s+){0,5}h-?1-?b\b"
             r"|\bh-?1-?b\b[^.]{0,50}\b(not available|not offered|not provided|not supported|unavailable|not eligible)\b")
+_NEG_VERB = r"(not|unable to|cannot|can'?t|won'?t|will not|do not|does not|don'?t|doesn'?t|is not|are not|not able to)"
+NO_SPONSOR = rx(r"\bnot\s+(be\s+)?eligible\s+for\s+(\w+\s+){0,3}sponsor\w*"
+                r"|\b" + _NEG_VERB + r"\s+(\w+\s+){0,2}(offer|provide|support|sponsor|consider|accept)\w*\b[^.]{0,60}"
+                r"\b(sponsor\w*|visas?)\b"
+                r"|\b(unable|cannot|can'?t|won'?t|will not|do not|does not|not able) (to )?sponsor\b"
+                r"|\bsponsor\w*\s+(is|are|will be)\s+not\s+(available|offered|provided|possible|an option)"
+                r"|\bsponsorship\s*[:\-]\s*(not available|none|no)\b"
+                r"|\bno\s+(visa\s+|immigration\s+|employment\s+)?sponsorship\b(?!\s+(is\s+)?(required|needed|necessary))")
 F1_EXCLUDED = rx(r"\bf-?1\b[^.]{0,140}\b(not eligible|ineligible|unable|cannot|will not|won'?t)\b"
                  r"|\b(cpt|opt)\b[^.]{0,90}\b(not eligible|will not|won'?t|cannot|unable)\b"
                  r"|\b(not eligible|ineligible)\b[^.]{0,90}\bf-?1\b")
@@ -437,13 +449,13 @@ def check_eligibility(title, desc=None, degrees=None, sponsorship=None):
 
     if sponsorship and re.search(r"citizenship is required", sponsorship, re.I):
         return drop("requires US citizenship (list flag)", sponsorship)
+    if sponsorship and re.search(r"does not offer", sponsorship, re.I):
+        return drop("no visa sponsorship (list flag)", sponsorship)
     if phd_only(title, desc, degrees):
         return drop("PhD only", title)
     if undergrad_only_title(title):
         return drop("undergrad only", title)
     if not desc:
-        if sponsorship and re.search(r"does not offer", sponsorship, re.I):
-            res["line"] = "Listed as: Does Not Offer Sponsorship"
         return res
     for s in _sentences(desc):
         if ITAR.search(s):
@@ -455,7 +467,7 @@ def check_eligibility(title, desc=None, degrees=None, sponsorship=None):
             hit = "requires security clearance"
         elif CITIZEN.search(s) or US_PERSON.search(s) or PERM_RES.search(s) or ASYLEE.search(s):
             hit = "requires US citizenship / PR / asylee"
-        if hit and not (NEG.search(s) or INCLUSIVE.search(s) or COND.search(s)) and REQ.search(s):
+        if hit and not (NEG.search(s) or INCLUSIVE.search(PERM_AUTH.sub(" ", s)) or COND.search(s)) and REQ.search(s):
             return drop(hit, s)
         if F1_EXCLUDED.search(s):
             return drop("F-1 / CPT / OPT not eligible", s)
@@ -463,14 +475,14 @@ def check_eligibility(title, desc=None, degrees=None, sponsorship=None):
             return drop("no sponsorship now or in the future", s)
         if H1B_NO.search(s):
             return drop("no H-1B sponsorship", s)
+        if NO_SPONSOR.search(s) and not SPONS_NOISE.search(s):
+            return drop("no visa sponsorship", s)
         if PHD_REQ_SENT.search(s) and not NON_PHD_DESC.search(s):
             return drop("PhD required (description)", s)
     if UNDERGRAD_DESC.search(desc) and not NON_UNDERGRAD_DESC.search(desc):
         m = UNDERGRAD_DESC.search(desc)
         return drop("undergrad only (description)", desc[max(0, m.start() - 60):m.end() + 60])
     res["line"] = sponsorship_line(desc)
-    if not res["line"] and sponsorship and re.search(r"does not offer", sponsorship, re.I):
-        res["line"] = "Listed as: Does Not Offer Sponsorship"
     g = grad_window_issue(desc)
     if g:
         res["flags"].append("🎓 check graduation date: \"%s\"" % g)

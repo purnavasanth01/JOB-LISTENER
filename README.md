@@ -15,7 +15,7 @@ Targets live in `targets.json`: the 121 H1B_LIST companies (H-1B sponsors, ranke
 - Excluded: pure hardware / embedded / robotics engineering, semiconductor, GPU/performance, quant/trading, sales/solutions/support, IT/sysadmin, non-tech.
 - Vague titles ("Engineering Intern") are not dropped blindly: the description is read and the job is kept if it has 4+ distinct tech words (tagged 🔍).
 - Terms: any 2027 term, or no term listed. US locations (or unknown).
-- **Dropped** when the posting requires US citizenship / green card / asylee / clearance / US persons, mentions ITAR, says F-1/CPT/OPT not eligible, says no sponsorship "now or in the future" or no H-1B, is undergrad-only, or is PhD-only.
+- **Dropped** when the posting requires US citizenship / green card / asylee / clearance / US persons, mentions ITAR, says F-1/CPT/OPT not eligible, says no sponsorship "now or in the future" or no H-1B, says the role is not eligible for / does not offer visa sponsorship (any wording, including the list flag "Does Not Offer Sponsorship"), needs "permanent work authorization", is undergrad-only, or is PhD-only.
 - Otherwise the alert quotes the posting's own sponsorship sentence (💬). 🎓 flags a graduation window that excludes May 2028.
 
 ## Telegram buttons

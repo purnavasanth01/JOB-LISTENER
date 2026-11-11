@@ -112,13 +112,14 @@ class HardDrops(unittest.TestCase):
             "Only U.S. persons are eligible for this role.",
             "Shift: Day. Travel: No. US Citizenship. Clearance Level: None.",
             "Citizenship: U.S. Citizen. Location: Herndon, VA.",
+            "Applicants must be authorized to work in the U.S. We do not sponsor visas.",   # no-sponsorship drop (2026-11-11)
         ]
         for d in drops:
             self.assertIsNotNone(rules.hard_drop("SWE Intern", d), d)
         keeps = [
             "We are an equal opportunity employer and do not discriminate based on citizenship status.",
             "No security clearance is required.",
-            "Applicants must be authorized to work in the U.S. We do not sponsor visas.",
+            "Applicants must be authorized to work in the U.S.",
             "Some positions may require U.S. citizenship due to export control regulations.",
             "Must be a U.S. citizen, permanent resident, or hold valid work authorization (F-1 CPT welcome).",
             "Great team, fun projects, free lunch.",
@@ -138,7 +139,9 @@ class HardDrops(unittest.TestCase):
 
     def test_list_flag(self):
         self.assertIsNotNone(rules.hard_drop("SWE Intern", sponsorship="U.S. Citizenship is Required"))
-        self.assertIsNone(rules.hard_drop("SWE Intern", sponsorship="Does Not Offer Sponsorship"))
+        self.assertEqual(rules.hard_drop("SWE Intern", sponsorship="Does Not Offer Sponsorship"),
+                         "no visa sponsorship (list flag)")
+        self.assertIsNone(rules.hard_drop("SWE Intern", sponsorship="Offers Sponsorship"))
 
     def test_new_drops(self):
         e = rules.check_eligibility
@@ -152,11 +155,28 @@ class HardDrops(unittest.TestCase):
             "Open to rising seniors in Computer Science.": "undergrad only (description)",
             "Applicants must have a GPA of 3.0 or above. Must be currently pursuing a Bachelor's degree in CS.": "undergrad only (description)",
             "Candidates must be enrolled in a PhD program.": "PhD required (description)",
+            # Purna 2026-11-11: any "no visa sponsorship" statement is a drop
+            "We are unable to sponsor visas for this internship.": "no visa sponsorship",
+            "This position is not eligible for visa sponsorship.": "no visa sponsorship",
+            "Unfortunately, we are unable to consider candidates on a student visa.": "no visa sponsorship",
+            "We do not offer visa sponsorship for this role.": "no visa sponsorship",
+            "Visa sponsorship is not available for this position.": "no visa sponsorship",
+            "No visa sponsorship.": "no visa sponsorship",
+            "Sponsorship: Not available": "no visa sponsorship",
+            "Due to contract requirements, US Citizenship or Permanent Work Authorization is required.":
+                "requires US citizenship / PR / asylee",
+            "US citizenship is required for this position.": "requires US citizenship / PR / asylee",
+            "An active security clearance is required.": "requires security clearance",
         }
         for d, want in cases.items():
             self.assertEqual(e("Software Engineer Intern", d)["drop"], want, d)
         keeps = [
-            "We are unable to sponsor visas for this internship.",
+            "Visa sponsorship is available for this role.",
+            "We will consider sponsoring visas for strong candidates.",
+            "No sponsorship is required for CPT students.",
+            "We do not discriminate on the basis of citizenship status or visa status.",
+            "Roku has a track record of offering H1B sponsorships, with 54 in 2026.",
+            "Must be a US Citizen, permanent resident or be an MS student with work authorization (F1 on CPT accepted).",
             "Currently pursuing a Bachelor's or Master's degree in CS.",
             "Applicants must be authorized to work in the US.",
             "F-1 students are eligible if they are using CPT.",
@@ -175,8 +195,8 @@ class HardDrops(unittest.TestCase):
         self.assertEqual(e("Master's ML Intern", "Must be enrolled in a PhD program.")["drop"], "PhD required (description)")
 
     def test_line_and_flags(self):
-        r = rules.check_eligibility("SWE Intern", "Great team. We are unable to sponsor visas for this internship. Free lunch.")
-        self.assertEqual(r["line"], "We are unable to sponsor visas for this internship.")
+        r = rules.check_eligibility("SWE Intern", "Great team. We will consider sponsoring visas for this internship. Free lunch.")
+        self.assertEqual(r["line"], "We will consider sponsoring visas for this internship.")
         r = rules.check_eligibility("SWE Intern", "F-1 students are eligible if they are using CPT.")
         self.assertIn("✓ F-1/CPT welcome", r["flags"])
         r = rules.check_eligibility("SWE Intern", "Must be graduating between December 2026 and June 2027.")
@@ -186,7 +206,7 @@ class HardDrops(unittest.TestCase):
         r = rules.check_eligibility("SWE Intern", "Company H1B Sponsorship. Build APIs.")
         self.assertIsNone(r["line"])
         r = rules.check_eligibility("SWE Intern", None, sponsorship="Does Not Offer Sponsorship")
-        self.assertEqual(r["line"], "Listed as: Does Not Offer Sponsorship")
+        self.assertEqual(r["drop"], "no visa sponsorship (list flag)")
 
     def test_tech_words(self):
         self.assertGreaterEqual(rules.tech_word_count("Build REST APIs in Python and Java on AWS with Docker."), 4)
