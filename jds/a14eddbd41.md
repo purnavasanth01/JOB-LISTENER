@@ -1,0 +1,21 @@
+# Springs Window Fashions — Product Management Dashboard Analytics Intern
+
+- **Job key:** `simplify:1f240169-1dfc-46e6-8e84-6e70ff3d98da` (req/ID: 1f240169-1dfc-46e6-8e84-6e70ff3d98da)
+- **Employer:** Springs Window Fashions
+- **Role family:** Product/Program
+- **Location:** Middleton, WI
+- **Pay:** not stated
+- **Term:** Summer 2027
+- **Posted:** 2026-08-22 · **Found:** 2026-11-05 02:06 CT
+- **Link:** https://careers-springswindowfashions.icims.com/jobs/12882/job?mobile=true&needsRedirect=false
+- **Found by:** Listener 3 (Simplify list)
+- **Sponsorship wording:** none found
+- **Flags:** none
+
+## Job description (verbatim)
+
+Description. . Product Management - Dashboard Analytics Internship – Summer 2027 . . The Best Experience Company . Our tagline is “The Best Experience Company.” More than just a set of words, it represents the essence of who we are at Springs Window Fashions. As North America’s premier window covering company, we’re committed to creating the Best Experience for our associates, consumers and end users, business partners, and communities. We want you to join our team of passionate self-starters who believe the world is full of Best Experience opportunities. So, if you’re excited about the thought of a Best Experience career with a team focused on creating Best Experiences for all, we want to hear from you! . . Internship Overview . Springs Window Fashions is looking for a motivated and hardworking individual to join our Product Management Team! The Product Management Internship provides an exciting opportunity to assist the team with project support while providing valuable work experience related to your chosen field of study. Our paid internship program is known for having in-depth, challenging project work with cross-functional teams, as well as professional development, job shadowing and other growth opportunities.. . Internship Projects and Responsibilities . As a product management intern, you will partner with an Analytics and/or Finance intern to develop a standardized New Product Launch Dashboard that provides a consistent view of launch performance across product lines. Your goal will be to create a repeatable, standardized launch performance dashboard that gives Product Management and leadership a consistent way to assess new product performance, identify opportunities or issues early, and make better-informed decisions throughout the product launch lifecycle.. . What Spring’s Best Experience Means for You . Springs Window Fashions offers incredible opportunities to develop the skills you’ll need to be successful in a fast-paced consumer products company. You’ll also be provided with several perks and benefits as a member of the Springs team:. Newly renovated corporate headquarters (including on-site fitness center). Exposure to other roles and functions within SWF . Career advancement opportunities . Regular interaction with multiple functional areas and with others at all levels within the organization, from production to senior leadership. Paid on-the-job training; in-depth product knowledge sessions via online courses, live online classes, and live sessions. . Requirements. . What We’re Looking For . Previous internship experience in relevant function preferred . Pursuing a 4-year degree with preferred current standing of Sophomore/Junior level. Data Analytics, Marketing, Marketing Analytics, or Related Major Preferred . Proficient computer skills Microsoft Office . Problem-solving and critical thinking skills. Strong communication skills (verbal, written and attention to detail). Positive attitude and eagerness to learn . How We Work to Deliver a Best Experience: Our Culture. Our Core Value: We do the right thing, always. Our Seven Cultural Behaviors Empowerment - We trust our people.. Ownership - We take 100% responsibility for our roles actions, and results.. Leadership - We all lead by example and talk direct with respect (DWR).. One Team - We are One Springs Team.. Customer First - We consider our customers' needs before every decision.. Continuous Innovation - We are constantly learning, innovating, and improving.. Speed - We define priorities and operate with a sense of urgency and agility.. .
+
+## ATS keywords
+
+none detected
