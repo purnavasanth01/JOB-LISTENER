@@ -1,0 +1,21 @@
+# Reliable Robotics — Displays Software Engineer Intern
+
+- **Job key:** `simplify:271bf34b-9787-4363-aae3-dcbb2964bfc1` (req/ID: 271bf34b-9787-4363-aae3-dcbb2964bfc1)
+- **Employer:** Reliable Robotics
+- **Role family:** Software
+- **Location:** Mountain View, CA
+- **Pay:** not stated
+- **Term:** not stated (confirm Summer 2027)
+- **Posted:** 2026-11-16T00:00:00Z · **Found:** 2026-11-16 18:04 CT
+- **Link:** https://jobs.ashbyhq.com/reliable-robotics/6112c488-7072-4ce3-8c0f-645faa0e7cf9/application?embed=true
+- **Found by:** Listener 3 (Simplify list)
+- **Sponsorship wording:** none found
+- **Flags:** ⚠ export-control mentioned
+
+## Job description (verbatim)
+
+We're building safety-enhancing technology for aviation that will save lives. Automated aviation systems will enable a future where air transportation is safer, more convenient and fundamentally transformative to the way goods — and eventually people — move around the planet. We are a team of mission-driven engineers with experience across aerospace, robotics and self-driving cars working to make this future a reality. As a Displays Software Engineer Intern, you will be a part of the Remote Piloting Software Team. This team is responsible for building the pilot-facing application software that is used to command the aircraft's advanced automation systems — both onboard, and remotely. You will join a team of interdisciplinary and mission-driven engineers with experience across aerospace, robotics, and self-driving vehicles. RESPONSIBILITIES - Work with peers and users to identify needs, establish constraints, and iterate on designs for user centered interfaces - Prototype and implement applications for testing, controlling, and supporting our automated aircraft systems - Test interfaces to validate the usability and reliability of safety-critical systems BASIC SUCCESS CRITERIA - In progress college-degree in Computer Science, Computer Engineering, Digital Product Design, or similar - Experience with web development and design (HTML, CSS, and JavaScript) PREFERRED SUCCESS CRITERIA - Experience with the web ecosystem and core technologies, particularly in realtime and data-driven applications - Familiarity with user centered design and design applications such as Figma, Sketch, and Adobe products - Excellent written and verbal communication skills - Attention to detail This position requires access to information that is subject to U.S. export controls. An offer of employment will be contingent upon the applicant’s capacity to perform in compliance with U.S. export control laws. All applicants are asked to provide documentation that legally establishes status as a U.S. person or non-U.S. person (and nationalities in the case of a non-U.S. person). Where the applicant is not a U.S. person, meaning not a (i) U.S. citizen or national, (ii) U.S. lawful permanent resident, (iii) refugee under 8 U.S.C. § 1157, or (iv) asylee under 8 U.S.C. § 1158, or not otherwise permitted to access the export-controlled technology without U.S. government authorization, the Company reserves the right not to apply for an export license for such applicants whose access to export-controlled technology or software source code requires authorization and may decline to proceed with the application process and any offer of employment on that basis. At Reliable Robotics, our goal is to be a diverse and inclusive workforce. As an Equal Opportunity Employer, we do not discriminate on the basis of race, religion, color, creed, ancestry, sex, gender (including pregnancy, childbirth, breastfeeding, or related medical conditions), gender identity, gender expression, sexual orientation, age, non-disqualifying physical or mental disability or medical conditions, national origin, military or veteran status, genetic information, marital status, or any other basis covered by applicable law. All employment and promotion is decided on the basis of qualifications, merit, and business need. If you require reasonable accommodation in completing an application, interviewing, completing any pre-employment testing, or otherwise participating in the employee selection process, please direct your inquiries to work@reliable.co
+
+## ATS keywords
+
+Computer Science, JavaScript, software, Software

@@ -1,0 +1,21 @@
+# BMO — Software Engineer, Winter 2027 (Co-op/Internship) -4 months
+
+- **Job key:** `jobright:6b0488dd566251ad7b862efa` (req/ID: 6b0488dd566251ad7b862efa)
+- **Employer:** BMO
+- **Role family:** Software
+- **Location:** San Ramon, CA, United States
+- **Pay:** not stated
+- **Term:** Winter 2027
+- **Posted:** Nov 22 · **Found:** 2026-11-23 14:31 CT
+- **Link:** https://jobright.ai/jobs/info/6b0488dd566251ad7b862efa
+- **Found by:** Listener 3 (Jobright list)
+- **Sponsorship wording:** "BMO has a track record of offering H1B sponsorships, with 14 in 2026, 7 in 2025, 2 in 2024, 6 in 2023, 4 in 2022, 2 in 2021, 2 in 2020."
+- **Flags:** none
+
+## Job description (verbatim)
+
+BMO Bank N.A. is hiring a Software Engineer co-op/intern to develop and maintain technology applications and services. The role translates user and business requirements into technical specifications, develops and tests software, supports system design and security, and follows release and risk-management standards.. . Responsibilities. Translates user needs into technical specifications by understanding, conceptualizing, and facilitating technical requirements from user.​. Analyzes, develops, tests, and implements new software programs, and documentation of entire software development life cycle execution. Performs preventative and corrective maintenance, troubleshooting and fault rectification of system and core software components​. Ensures that code/configurations adhere to the security, logging, error handling, and performance standards and non-functional requirements.​. Evaluates new technologies for fit with the program/system/eco-system and the associated upstream and downstream impacts on process, data, and risk. Follows release management processes and standards, and applies version controls. ​. Assists in interpreting and documentation of client requirements.​. Focus is primarily on business/group within BMO; may have broader, enterprise-wide focus. Exercises judgment to identify, diagnose, and solve problems within given rules. Works independently on a range of complex tasks, which may include unique situations. Broader work or accountabilities may be assigned as needed. Take measured risks while protecting the bank by applying our Risk Management Framework in the execution of your role, in line with our Risk Culture and within our approved Risk Appetite, making sound and risk informed decisions that align to business strategy, protect assets, and adhere to applicable policy documents (Frameworks, Policies, Standards, Procedures and Supporting documents), laws and regulations. . Skills. Creative thinking. Building and managing relationships. Emotional agility. Quality Assurance and Testing. Cloud computing. Microservices. Technology Business Requirements Definition, Analysis and Mapping. Adaptability. Learning Agility. Programming. Applications Integration. Test Driven Development. System Development Lifecycle. Troubleshooting. System and Technology Integration. Verbal & written communication skills. Collaboration & team skills. Analytical and problem solving skills. Data driven decision making. Typically between 4 - 6 years of relevant experience and post-secondary degree in related field of study or an equivalent combination of education and experience. Technical proficiency gained through education and/or business experience. . Benefits. Health insurance. Tuition reimbursement. Accident and life insurance. Retirement savings plans. Performance-based incentives, discretionary bonuses, and other perks and rewards may be included in the total compensation package.. In-depth training and coaching. Manager support. Network-building opportunities. Tools and resources to help you reach new milestones. . Company Overview. We’re a bank, but there’s more to it than that. ​ When you join BMO, it opens a world of opportunities. It was founded in 1817, and is headquartered in Toronto, Ontario, CAN, with a workforce of 10001+ employees. Its website is http://www.bmo.com.. . Company H1B Sponsorship. BMO has a track record of offering H1B sponsorships, with 14 in 2026, 7 in 2025, 2 in 2024, 6 in 2023, 4 in 2022, 2 in 2021, 2 in 2020. Please note that this does not guarantee sponsorship for this specific role.. .
+
+## ATS keywords
+
+Cloud, Microservices, Programming, Software, software

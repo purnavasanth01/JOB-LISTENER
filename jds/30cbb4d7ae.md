@@ -1,0 +1,21 @@
+# Ededge Groups — Data Analytics Intern
+
+- **Job key:** `jobright:6aeaac0a440b469a1c0af9c0` (req/ID: 6aeaac0a440b469a1c0af9c0)
+- **Employer:** Ededge Groups
+- **Role family:** Data
+- **Location:** United States
+- **Pay:** not stated
+- **Term:** not stated (confirm Summer 2027)
+- **Posted:** Nov 03 · **Found:** 2026-11-04 00:03 CT
+- **Link:** https://jobright.ai/jobs/info/6aeaac0a440b469a1c0af9c0
+- **Found by:** Listener 3 (Jobright list)
+- **Sponsorship wording:** none found
+- **Flags:** none
+
+## Job description (verbatim)
+
+Note: The job is a remote job and is open to candidates in USA. Ededge is hiring for a remote Data Analytics internship and training program. The intern will work on real-world data projects involving data management, analysis, modeling, and developing analytical skills.. . Responsibilities. Work closely with our esteemed data science team to gather, refine, and analyze extensive datasets, refining skills in data preprocessing and visualization. Apply machine learning and data mining methods to derive insights from large datasets, including identifying Excel interface structures. Utilize Python programming for Exploratory Data Analysis (EDA) in practical business contexts, with a focus on risk analytics in banking and finance. Develop scientific tests and optimize model performance using cutting-edge modeling technologies such as no-code databases and data mining. Collaborate with a multidisciplinary team to construct machine learning pipelines for various applications in commerce, finance, and procurement. Engage with internal stakeholders to explore and comprehend business data, develop hypotheses, and evaluate strategies using techniques like T-tests. Address specific challenges and devise innovative solutions by leveraging modeling technologies such as bike share systems. Acquire and apply advanced analytical techniques using tools like Tableau. Create reports and presentations to effectively convey data analysis methodologies and findings. . Skills. Strong problem-solving and critical thinking abilities. Currently pursuing any degree showcasing a strong commitment to continuous learning and professional growth. Excellent communication and teamwork skills. Ability to work independently and remotely. . Benefits. Remote internship role. Opportunity to work on real-world data projects and gain practical experience in the field of data analytics. Acquire and apply advanced analytical techniques using tools like Tableau. . Company Overview. Welcome to Ededge! We're here to guide you on an incredible journey of skill growth and career advancement. It was founded in 2023, and is headquartered in New Delhi, Delhi, IN, with a workforce of 11-50 employees. Its website is https://www.ededgelearning.com.. .
+
+## ATS keywords
+
+databases, machine learning, programming, Python
